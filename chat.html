@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>MuzzSnap - Terminal Edition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MuzzSnap | Chat</title>
+  <meta name="theme-color" content="#050505">
+  <link rel="icon" href="muzzsnap.jpg">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -14,37 +16,249 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" type="text/javascript"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            orbitron: ['Orbitron', 'sans-serif'],
+            rajdhani: ['Rajdhani', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;700&family=Orbitron:wght@400;900&display=swap');
-    :root{--muzz-red:#ff0000;--ryachu-gold:#ffcc00;--itsuki-blue:#00d4ff}
-    html,body{height:100%;overflow:hidden;margin:0;padding:0}
-    body.dark-theme{background:#050505;color:white}
-    body.light-theme{background:#f0f2f5;color:#1a1a1a}
-    .panel-3d{border-radius:24px;transition:all 0.3s ease;display:flex;flex-direction:column;height:100%}
-    .dark-theme .panel-3d{background:#0c0c0c;border:1px solid rgba(255,0,0,0.15);box-shadow:0 10px 30px rgba(0,0,0,0.8)}
-    .light-theme .panel-3d{background:#ffffff;border:1px solid #e0e0e0;box-shadow:0 10px 30px rgba(0,0,0,0.05)}
-    .bubble-3d{padding:12px 16px;border-radius:20px;font-size:14px;max-width:85%;line-height:1.4;position:relative}
-    .bubble-3d.me{background:linear-gradient(145deg,#ff0000,#b30000);color:white;align-self:flex-end;border-bottom-right-radius:4px}
-    .dark-theme .bubble-3d.other{background:#1a1a1a;border:1px solid rgba(255,255,255,0.05)}
-    .light-theme .bubble-3d.other{background:#ffffff;border:1px solid #e0e0e0;color:black}
-    .bubble-3d.muted{opacity:0.5}
-    .ryachu-name{color:var(--ryachu-gold);font-weight:800}
-    .itsuki-name{color:var(--itsuki-blue);font-weight:800}
-    .esteban-name{color:#ff6b6b;font-weight:800}
-    .hacker-input{font-family:'Fira Code',monospace}
-    .dark-theme .hacker-input{color:#39ff14!important}
-    .emoji-window{max-height:180px;overflow-y:auto;display:grid;grid-template-columns:repeat(7,1fr);gap:10px;padding:15px}
-    .emoji-btn{font-size:1.5rem;cursor:pointer;transition:transform 0.2s;display:flex;justify-content:center}
-    .custom-scroll::-webkit-scrollbar{width:4px}
-    .custom-scroll::-webkit-scrollbar-thumb{background:var(--muzz-red);border-radius:10px}
-    .online-indicator{width:8px;height:8px;background:#39ff14;border-radius:50%;box-shadow:0 0 8px #39ff14}
-    .admin-btn{font-size:10px;padding:8px 12px;border-radius:8px;background:rgba(255,0,0,0.1);border:1px solid rgba(255,0,0,0.3);color:#ff0000;font-weight:bold;transition:all 0.3s;cursor:pointer}
-    .admin-btn:hover{background:#ff0000;color:white}
+    :root {
+      --red: #ff1a1a;
+      --red-glow: rgba(255, 20, 20, 0.4);
+      --ryachu-gold: #ffcc00;
+      --itsuki-blue: #00d4ff;
+      --bg: #050505;
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+    }
+
+    * { box-sizing: border-box; }
+    html, body, #root { height: 100%; margin: 0; }
+    html, body { overflow: hidden; background: var(--bg); }
+    body { font-family: 'Rajdhani', sans-serif; color: #fff; }
+    button, a, input { touch-action: manipulation; }
+
+    body.dark-theme {
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(120, 0, 0, 0.22), transparent 58%),
+        #050505;
+      color: #fff;
+    }
+    body.light-theme { background: #eceff3; color: #161616; }
+
+    .space-grid {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(255, 30, 30, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 30, 30, 0.05) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 10%, transparent 80%);
+    }
+    .light-theme .space-grid { opacity: 0.12; }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      height: 100dvh;
+      display: flex;
+      gap: 14px;
+      padding: 12px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .panel-3d {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-radius: 22px;
+      background: linear-gradient(180deg, #141414 0%, #0b0b0b 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 0 1px rgba(255, 30, 30, 0.22),
+        0 12px 28px rgba(0, 0, 0, 0.45);
+    }
+    .light-theme .panel-3d {
+      background: #fff;
+      box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #e4e4e4, 0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      padding: 16px 14px;
+    }
+
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 12px; object-fit: cover;
+      box-shadow: 0 0 0 1px rgba(255, 40, 40, 0.4), 0 6px 16px rgba(255, 0, 0, 0.2);
+    }
+
+    .brand-title {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 0; cursor: pointer;
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 0 0 1px rgba(255, 30, 30, 0.25);
+      color: var(--red);
+    }
+
+    .nav-btn {
+      width: 100%;
+      text-align: left;
+      padding: 11px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      border: 0;
+      cursor: pointer;
+      background: transparent;
+      color: rgba(255,255,255,0.45);
+    }
+    .light-theme .nav-btn { color: #6b6b6b; }
+    .nav-btn.active {
+      color: #fff;
+      background: rgba(255, 20, 20, 0.14);
+      box-shadow: inset 3px 0 0 var(--red);
+    }
+    .nav-btn:hover { color: #fff; background: rgba(255, 20, 20, 0.08); }
+
+    .bubble-3d {
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 15px;
+      max-width: min(86%, 560px);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .bubble-3d.me {
+      background: linear-gradient(180deg, #ff3a3a, #b40000);
+      color: #fff;
+      border-bottom-right-radius: 5px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 16px rgba(255,0,0,0.18);
+    }
+    .dark-theme .bubble-3d.other {
+      background: #161616;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+    }
+    .light-theme .bubble-3d.other {
+      background: #fff; color: #111; box-shadow: inset 0 0 0 1px #e6e6e6;
+    }
+    .bubble-3d.muted { opacity: 0.5; }
+
+    .ryachu-name { color: var(--ryachu-gold); font-weight: 800; }
+    .itsuki-name { color: var(--itsuki-blue); font-weight: 800; }
+    .esteban-name { color: #ff6b6b; font-weight: 800; }
+
+    .msg-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      outline: none;
+      color: inherit;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .dark-theme .msg-input { color: #f5f5f5; }
+    .msg-input:disabled { opacity: 0.5; }
+
+    .send-btn {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border: 0; border-radius: 14px; cursor: pointer; color: #fff;
+      background: linear-gradient(180deg, #ff4a4a, #9a0000);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 0 #3a0000, 0 10px 18px rgba(255,0,0,0.25);
+    }
+    .send-btn.pin { background: linear-gradient(180deg, #f0c000, #9a7400); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 0 #4a3800; }
+
+    .emoji-window { max-height: 160px; overflow-y: auto; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 12px; }
+    .emoji-btn { font-size: 1.4rem; cursor: pointer; display: flex; justify-content: center; min-height: 36px; align-items: center; }
+
+    .custom-scroll { scrollbar-width: thin; scrollbar-color: var(--red) transparent; }
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: var(--red); border-radius: 10px; }
+
+    .online-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: #39ff14; box-shadow: 0 0 8px #39ff14;
+    }
+
+    .admin-btn {
+      font-size: 10px; padding: 9px 10px; border-radius: 10px; font-weight: 800;
+      background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3);
+      color: #ff3a3a; cursor: pointer; letter-spacing: 0.06em;
+    }
+    .admin-btn:hover { background: #ff1a1a; color: #fff; }
+
+    .boot-screen {
+      height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      font-family: 'Orbitron', sans-serif;
+    }
+    .boot-logo {
+      width: 92px; height: 92px; border-radius: 24px; object-fit: cover;
+      box-shadow: 0 0 0 1px rgba(255,40,40,0.45), 0 16px 40px rgba(255,0,0,0.25);
+    }
+    .boot-text { color: var(--red); letter-spacing: 0.42em; font-size: 0.72rem; }
+
+    .composer {
+      padding: 10px 12px calc(10px + var(--safe-b));
+    }
+
+    @media (max-width: 1023px) {
+      .app-shell { padding: 0; gap: 0; }
+      .panel-3d { border-radius: 0; box-shadow: none; }
+      .sidebar {
+        position: fixed;
+        z-index: 50;
+        inset: 0 auto 0 0;
+        width: min(86vw, 330px);
+        padding: calc(14px + var(--safe-t)) 14px calc(14px + var(--safe-b)) calc(14px + var(--safe-l));
+        border-radius: 0 22px 22px 0;
+        transform: translateX(-110%);
+        transition: transform 0.28s ease;
+      }
+      .sidebar.open { transform: translateX(0); }
+      .chat-header {
+        padding-top: calc(10px + var(--safe-t)) !important;
+      }
+      .emoji-window { grid-template-columns: repeat(6, 1fr); }
+    }
+
+    @media (min-width: 768px) {
+      .msg-input { font-size: 15px; }
+    }
   </style>
 </head>
 <body class="dark-theme">
-  <div id="root" class="h-full"></div>
+  <div class="space-grid"></div>
+  <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -474,31 +688,40 @@
       };
 
       if (!me) {
-        return <div className="h-full flex items-center justify-center text-red-600 font-orbitron animate-pulse">CONNECTING...</div>;
+        return (
+          <div className="boot-screen">
+            <img src="muzzsnap.jpg" alt="MuzzSnap" className="boot-logo" />
+            <p className="boot-text">CONNECTING</p>
+          </div>
+        );
       }
 
       return (
-        <div className="flex h-screen p-2 md:p-4 lg:p-6 gap-4 md:gap-6 max-w-[1600px] mx-auto overflow-hidden">
-          <aside className={`fixed lg:relative z-50 inset-y-0 left-0 w-72 lg:w-64 transition-all duration-300 transform panel-3d p-6 flex flex-col ${mobileMenu ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none'}`}>
-            <div className="mb-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-red-600/30">
-                <i className="fas fa-ghost text-white text-sm"></i>
+        <div className="app-shell">
+          <aside className={`sidebar panel-3d ${mobileMenu ? 'open' : ''}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <img src="muzzsnap.jpg" alt="MuzzSnap" className="brand-logo" />
+              <div className="min-w-0 flex-1">
+                <h1 className="brand-title">MUZZSNAP</h1>
+                <p className="text-[11px] uppercase tracking-widest text-red-500 truncate">{me.username}</p>
               </div>
-              <h1 className="font-orbitron font-black text-xl italic tracking-tighter">MUZZ<span className="text-red-600">SNAP</span></h1>
+              <button type="button" className="icon-btn lg:hidden" onClick={() => setMobileMenu(false)} aria-label="Close menu">
+                <i className="fas fa-times"></i>
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scroll space-y-8 pr-2">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scroll space-y-6 pr-1">
               {isAdmin && (
                 <div>
-                  <p className="text-[9px] text-red-600 font-bold tracking-[0.3em] mb-4 uppercase">Admin Console</p>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                  <p className="text-[10px] text-red-500 font-bold tracking-[0.28em] mb-3 uppercase">Admin</p>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
                     <button onClick={adminActions.enablePinMode} className="admin-btn"><i className="fas fa-thumbtack mr-1"></i>FIJAR</button>
                     <button onClick={adminActions.clearChat} className="admin-btn"><i className="fas fa-trash mr-1"></i>LIMPIAR</button>
                   </div>
-                  <details className="bg-red-600/5 border border-red-600/20 rounded-lg">
-                    <summary className="cursor-pointer px-3 py-2 text-[9px] font-bold text-red-500 uppercase tracking-wider">Moderación ▼</summary>
+                  <details className="rounded-xl" style={{background:'rgba(255,0,0,0.05)', boxShadow:'inset 0 0 0 1px rgba(255,0,0,0.2)'}}>
+                    <summary className="cursor-pointer px-3 py-2 text-[10px] font-bold text-red-500 uppercase tracking-wider">Moderación</summary>
                     <div className="p-3 space-y-2 border-t border-red-600/20">
-                      <button onClick={adminActions.openBanPanel} className="w-full admin-btn text-left"><i className="fas fa-user-slash mr-2"></i>Banear Usuario</button>
+                      <button onClick={adminActions.openBanPanel} className="w-full admin-btn text-left"><i className="fas fa-user-slash mr-2"></i>Banear</button>
                       <button onClick={adminActions.openMutePanel} className="w-full admin-btn text-left"><i className="fas fa-volume-mute mr-2"></i>Mutear 1min</button>
                     </div>
                   </details>
@@ -506,12 +729,12 @@
               )}
 
               <div>
-                <p className="text-[10px] text-gray-500 font-bold tracking-[0.3em] mb-4 uppercase">Channels</p>
+                <p className="text-[10px] text-gray-500 font-bold tracking-[0.28em] mb-2 uppercase">Channels</p>
                 {CHANNELS.map((channel) => (
                   <button
                     key={channel.id}
                     onClick={() => { setActiveChannel(channel); setMobileMenu(false); }}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold mb-1 transition-all ${activeChannel.id === channel.id ? 'bg-red-600/10 text-red-600 border-l-2 border-red-600 shadow-lg shadow-red-600/5' : 'text-gray-500 hover:text-white'}`}
+                    className={`nav-btn ${activeChannel.id === channel.id ? 'active' : ''}`}
                   >
                     # {channel.name}
                   </button>
@@ -519,25 +742,25 @@
               </div>
 
               <div>
-                <p className="text-[10px] text-gray-500 font-bold tracking-[0.3em] mb-4 uppercase">Muzz</p>
-                <button onClick={goToPrivate} className="w-full text-left px-4 py-3 rounded-xl text-xs font-bold mb-1 transition-all text-gray-500 hover:text-white hover:bg-red-600/5 border border-white/5">
+                <p className="text-[10px] text-gray-500 font-bold tracking-[0.28em] mb-2 uppercase">Muzz</p>
+                <button onClick={goToPrivate} className="nav-btn">
                   <i className={`fas ${me.isWallet ? 'fa-user-secret' : 'fa-lock'} mr-2`}></i>
-                  PRIVATE
+                  Private
                 </button>
-                <button onClick={goToGame} className="w-full text-left px-4 py-3 rounded-xl text-xs font-bold mb-1 transition-all text-gray-500 hover:text-white hover:bg-red-600/5 border border-white/5">
+                <button onClick={goToGame} className="nav-btn">
                   <i className="fas fa-gamepad mr-2"></i>
-                  GAME
+                  Game
                 </button>
-                <p className="text-[9px] text-gray-600 px-1 uppercase tracking-wider">Wallet + 2M MUZZLE · Admin bypass</p>
+                <p className="text-[10px] text-gray-600 px-1 mt-1 uppercase tracking-wider leading-snug">Wallet + 2M MUZZ · Admin bypass</p>
               </div>
 
               <div>
-                <p className="text-[10px] text-gray-500 font-bold tracking-[0.3em] mb-4 uppercase">Online — {onlineUsers.length}</p>
-                <div className="space-y-3">
+                <p className="text-[10px] text-gray-500 font-bold tracking-[0.28em] mb-2 uppercase">Online — {onlineUsers.length}</p>
+                <div className="space-y-2">
                   {onlineUsers.map((user, idx) => (
-                    <div key={`${user.uid || user.identityKey || idx}`} className="flex items-center gap-3 px-2">
-                      <span className="online-indicator"></span>
-                      <span className={`text-[11px] truncate font-bold uppercase flex-1 ${roleClass(user.role,'text-gray-400')}`}>
+                    <div key={`${user.uid || user.identityKey || idx}`} className="flex items-center gap-2 px-1">
+                      <span className="online-dot"></span>
+                      <span className={`text-[12px] truncate font-bold uppercase flex-1 ${roleClass(user.role,'text-gray-400')}`}>
                         {roleBadge(user.role)}{user.username}
                       </span>
                     </div>
@@ -546,35 +769,41 @@
               </div>
             </div>
 
-            <button onClick={() => { sessionStorage.clear(); window.location.href = 'login.html'; }} className="mt-6 w-full py-3 text-[10px] border border-red-900/30 text-red-600 rounded-xl uppercase font-black tracking-widest hover:bg-red-600/5 transition-all">
+            <button
+              onClick={() => { sessionStorage.clear(); window.location.href = 'login.html'; }}
+              className="mt-4 w-full py-3 text-[11px] uppercase font-black tracking-widest rounded-xl"
+              style={{color:'#ff3a3a', boxShadow:'inset 0 0 0 1px rgba(255,30,30,0.35)'}}
+            >
               <i className="fas fa-power-off mr-2"></i>Disconnect
             </button>
           </aside>
 
-          <main className="flex-1 panel-3d flex flex-col overflow-hidden border border-white/5 h-full relative">
+          <main className="panel-3d flex-1 min-w-0 relative">
             {pinnedMessage && (
-              <div className="bg-red-600/10 border-b border-red-600/30 py-2 px-6 flex items-center gap-4 flex-shrink-0">
-                <i className="fas fa-thumbtack text-red-600 text-[10px] animate-pulse"></i>
-                <marquee className="text-[10px] font-bold tracking-[0.2em] text-red-500 uppercase flex-1">{pinnedMessage}</marquee>
+              <div className="bg-red-600/10 border-b border-red-600/30 py-2 px-3 md:px-5 flex items-center gap-3 flex-shrink-0">
+                <i className="fas fa-thumbtack text-red-600 text-[10px]"></i>
+                <div className="text-[11px] font-bold tracking-[0.14em] text-red-500 uppercase flex-1 truncate">{pinnedMessage}</div>
                 {isAdmin && (
-                  <button onClick={adminActions.removePin} className="text-[8px] text-red-400 hover:text-red-600">
+                  <button onClick={adminActions.removePin} className="text-red-400 hover:text-red-600 px-2">
                     <i className="fas fa-times"></i>
                   </button>
                 )}
               </div>
             )}
 
-            <header className="h-16 flex items-center justify-between px-8 bg-white/5 border-b border-white/5 flex-shrink-0">
-              <div className="flex items-center gap-4">
-                <button onClick={() => setMobileMenu(true)} className="lg:hidden text-red-600"><i className="fas fa-bars"></i></button>
-                <h2 className="text-sm font-black tracking-[0.2em] text-red-600 uppercase italic">/ {activeChannel.name}</h2>
+            <header className="chat-header h-14 md:h-16 flex items-center justify-between px-3 md:px-5 flex-shrink-0" style={{boxShadow:'inset 0 -1px 0 rgba(255,255,255,0.06)'}}>
+              <div className="flex items-center gap-3 min-w-0">
+                <button type="button" onClick={() => setMobileMenu(true)} className="icon-btn lg:hidden" aria-label="Open menu">
+                  <i className="fas fa-bars"></i>
+                </button>
+                <h2 className="text-xs md:text-sm font-black tracking-[0.18em] text-red-500 uppercase truncate">/ {activeChannel.name}</h2>
               </div>
-              <button onClick={toggleTheme} className="w-10 h-10 rounded-xl border border-red-600/20 flex items-center justify-center hover:bg-red-600/5 transition-all">
-                {darkMode ? <i className="fas fa-sun text-yellow-500"></i> : <i className="fas fa-moon text-blue-500"></i>}
+              <button type="button" onClick={toggleTheme} className="icon-btn" aria-label="Toggle theme">
+                {darkMode ? <i className="fas fa-sun text-yellow-400"></i> : <i className="fas fa-moon text-blue-500"></i>}
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-5 custom-scroll">
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 md:px-6 md:py-6 flex flex-col gap-4 custom-scroll">
               {messages.map((msg, index) => {
                 const muted = !!(msg.identityKey && mutedMap[msg.identityKey] && mutedMap[msg.identityKey] > Date.now());
                 const date = new Date(msg.timestamp);
@@ -594,18 +823,18 @@
                 return (
                   <React.Fragment key={msg.id}>
                     {showDay && (
-                      <div className="flex items-center gap-4 my-4">
+                      <div className="flex items-center gap-3 my-2">
                         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-600/30 to-transparent"></div>
-                        <span className="text-[9px] font-black tracking-[0.3em] text-red-600/70 px-4 py-1.5 bg-red-600/5 rounded-full border border-red-600/20">{formatDay(date)}</span>
+                        <span className="text-[9px] font-black tracking-[0.22em] text-red-500/80 px-3 py-1 rounded-full" style={{boxShadow:'inset 0 0 0 1px rgba(255,0,0,0.2)'}}>{formatDay(date)}</span>
                         <div className="flex-1 h-px bg-gradient-to-r from-red-600/30 via-transparent to-transparent"></div>
                       </div>
                     )}
 
                     <div className={`flex flex-col ${msg.userId === me.uid ? 'items-end' : 'items-start'}`}>
-                      <span className={`text-[10px] font-black mb-1.5 uppercase px-2 ${roleClass(msg.role,'text-gray-500')}`}>
+                      <span className={`text-[10px] font-black mb-1 uppercase px-1 ${roleClass(msg.role,'text-gray-500')}`}>
                         {roleBadge(msg.role)}{msg.username} {muted && '🔇'}
                       </span>
-                      <div className={`bubble-3d shadow-xl ${msg.userId === me.uid ? 'me' : 'other'} ${muted ? 'muted' : ''}`}>
+                      <div className={`bubble-3d ${msg.userId === me.uid ? 'me' : 'other'} ${muted ? 'muted' : ''}`}>
                         {msg.content}
                       </div>
                     </div>
@@ -615,36 +844,36 @@
               <div ref={bottomRef}></div>
             </div>
 
-            <div className={`p-4 md:p-6 ${darkMode ? 'bg-black/40' : 'bg-gray-50'} border-t border-white/5 flex-shrink-0`}>
+            <div className={`composer flex-shrink-0 ${darkMode ? 'bg-black/30' : 'bg-gray-50'}`} style={{boxShadow:'inset 0 1px 0 rgba(255,255,255,0.06)'}}>
               {notice.show && (
-                <div className={`mb-3 px-4 py-3 rounded-xl border text-xs ${notice.tone === 'blue' ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' : notice.tone === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300' : 'bg-red-600/10 border-red-600/30 text-red-300'}`}>
+                <div className={`mb-3 px-3 py-3 rounded-xl text-xs ${notice.tone === 'blue' ? 'bg-cyan-500/10 text-cyan-300' : notice.tone === 'yellow' ? 'bg-yellow-500/10 text-yellow-300' : 'bg-red-600/10 text-red-300'}`} style={{boxShadow:'inset 0 0 0 1px rgba(255,255,255,0.08)'}}>
                   <div className="flex items-start gap-3">
                     <i className={`fas ${notice.tone === 'blue' ? 'fa-shield-alt' : notice.tone === 'yellow' ? 'fa-lock' : 'fa-ban'} mt-0.5`}></i>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-black uppercase tracking-wider mb-1">{notice.title}</p>
                       <p className="leading-relaxed">{notice.desc}</p>
                     </div>
-                    <button onClick={closeNotice} className="opacity-70 hover:opacity-100"><i className="fas fa-times"></i></button>
+                    <button onClick={closeNotice} className="opacity-70 px-1"><i className="fas fa-times"></i></button>
                   </div>
                 </div>
               )}
 
               {pinMode && (
-                <div className="mb-3 px-4 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-yellow-500 text-xs font-bold flex items-center gap-2">
-                  <i className="fas fa-thumbtack animate-pulse"></i>
-                  MODO FIJAR MENSAJE ACTIVADO - Escribe y envía
-                  <button onClick={() => setPinMode(false)} className="ml-auto text-yellow-500 hover:text-yellow-300"><i className="fas fa-times"></i></button>
+                <div className="mb-3 px-3 py-2 rounded-lg text-yellow-500 text-xs font-bold flex items-center gap-2" style={{background:'rgba(234,179,8,0.1)'}}>
+                  <i className="fas fa-thumbtack"></i>
+                  <span className="flex-1">MODO FIJAR — escribe y envía</span>
+                  <button onClick={() => setPinMode(false)}><i className="fas fa-times"></i></button>
                 </div>
               )}
 
               {banPanel && (
-                <div className="mb-3 panel-3d border border-red-600/30 p-4 max-h-48 overflow-y-auto custom-scroll">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-xs font-bold text-red-500 uppercase">Seleccionar usuario para banear</p>
-                    <button onClick={() => setBanPanel(false)} className="text-gray-500 hover:text-red-500"><i className="fas fa-times"></i></button>
+                <div className="mb-3 rounded-xl p-3 max-h-40 overflow-y-auto custom-scroll" style={{boxShadow:'inset 0 0 0 1px rgba(255,0,0,0.3)'}}>
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs font-bold text-red-500 uppercase">Banear usuario</p>
+                    <button onClick={() => setBanPanel(false)}><i className="fas fa-times"></i></button>
                   </div>
                   {onlineUsers.filter((user) => !ADMIN_ROLES.includes(user.role)).map((user) => (
-                    <button key={user.uid} onClick={() => adminActions.banUser(user)} className="w-full text-left px-3 py-2 text-xs hover:bg-red-600/10 rounded mb-1 flex items-center gap-2">
+                    <button key={user.uid} onClick={() => adminActions.banUser(user)} className="w-full text-left px-3 py-2 text-xs rounded mb-1 flex items-center gap-2">
                       <i className="fas fa-user-slash text-red-500"></i>
                       <span className="font-bold">{user.username}</span>
                     </button>
@@ -653,13 +882,13 @@
               )}
 
               {mutePanel && (
-                <div className="mb-3 panel-3d border border-yellow-600/30 p-4 max-h-48 overflow-y-auto custom-scroll">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="text-xs font-bold text-yellow-500 uppercase">Seleccionar usuario para mutear</p>
-                    <button onClick={() => setMutePanel(false)} className="text-gray-500 hover:text-yellow-500"><i className="fas fa-times"></i></button>
+                <div className="mb-3 rounded-xl p-3 max-h-40 overflow-y-auto custom-scroll" style={{boxShadow:'inset 0 0 0 1px rgba(234,179,8,0.3)'}}>
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs font-bold text-yellow-500 uppercase">Mutear usuario</p>
+                    <button onClick={() => setMutePanel(false)}><i className="fas fa-times"></i></button>
                   </div>
                   {onlineUsers.filter((user) => !ADMIN_ROLES.includes(user.role)).map((user) => (
-                    <button key={user.uid} onClick={() => adminActions.muteUser(user)} className="w-full text-left px-3 py-2 text-xs hover:bg-yellow-600/10 rounded mb-1 flex items-center gap-2">
+                    <button key={user.uid} onClick={() => adminActions.muteUser(user)} className="w-full text-left px-3 py-2 text-xs rounded mb-1 flex items-center gap-2">
                       <i className="fas fa-volume-mute text-yellow-500"></i>
                       <span className="font-bold">{user.username}</span>
                     </button>
@@ -668,10 +897,10 @@
               )}
 
               {showEmoji && (
-                <div className="mb-4 panel-3d border border-red-600/20 overflow-hidden shadow-2xl h-auto flex-shrink-0">
-                  <div className="flex bg-black/10 border-b border-white/5 overflow-x-auto custom-scroll">
+                <div className="mb-3 rounded-xl overflow-hidden" style={{boxShadow:'inset 0 0 0 1px rgba(255,0,0,0.2)'}}>
+                  <div className="flex overflow-x-auto custom-scroll">
                     {Object.keys(EMOJIS).map((tab) => (
-                      <button key={tab} onClick={() => setEmojiTab(tab)} className={`px-4 py-2 text-[9px] font-black uppercase tracking-tighter ${emojiTab === tab ? 'text-red-600 bg-red-600/5' : 'text-gray-500'}`}>
+                      <button key={tab} onClick={() => setEmojiTab(tab)} className={`px-3 py-2 text-[10px] font-black uppercase whitespace-nowrap ${emojiTab === tab ? 'text-red-500' : 'text-gray-500'}`}>
                         {tab}
                       </button>
                     ))}
@@ -684,28 +913,26 @@
                 </div>
               )}
 
-              <div className="flex items-center bg-black/30 border border-white/10 rounded-2xl p-2.5 pl-5 focus-within:border-red-600/50 transition-all shadow-inner">
-                <button onClick={() => setShowEmoji((prev) => !prev)} className="text-gray-500 hover:text-red-600 transition-colors mr-3">
+              <div className="flex items-center gap-2 rounded-2xl px-3 py-2" style={{background:'rgba(0,0,0,0.28)', boxShadow:'inset 0 0 0 1px rgba(255,255,255,0.08)'}}>
+                <button type="button" onClick={() => setShowEmoji((prev) => !prev)} className="text-gray-400 hover:text-red-500 px-1" aria-label="Emoji">
                   <i className="far fa-laugh-beam text-xl"></i>
                 </button>
-
                 <input
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder={iAmMuted ? 'Estás silenciado...' : pinMode ? 'Escribe el mensaje a fijar...' : 'Transmit message...'}
+                  placeholder={iAmMuted ? 'Estás silenciado...' : pinMode ? 'Mensaje a fijar...' : 'Escribe un mensaje...'}
                   disabled={iAmMuted}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm hacker-input"
+                  className="msg-input"
                 />
-
-                <button onClick={sendMessage} className={`w-12 h-12 ${pinMode ? 'bg-yellow-600' : 'bg-red-600'} rounded-xl flex items-center justify-center hover:bg-red-500 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,0,0,0.3)]`}>
-                  <i className={`fas ${pinMode ? 'fa-thumbtack' : 'fa-paper-plane'} text-white`}></i>
+                <button type="button" onClick={sendMessage} className={`send-btn ${pinMode ? 'pin' : ''}`} aria-label="Send">
+                  <i className={`fas ${pinMode ? 'fa-thumbtack' : 'fa-paper-plane'}`}></i>
                 </button>
               </div>
             </div>
           </main>
 
-          {mobileMenu && <div onClick={() => setMobileMenu(false)} className="fixed inset-0 bg-black/90 z-40 lg:hidden backdrop-blur-md"></div>}
+          {mobileMenu && <div onClick={() => setMobileMenu(false)} className="fixed inset-0 bg-black/70 z-40 lg:hidden"></div>}
         </div>
       );
     }
