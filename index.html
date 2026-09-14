@@ -3,261 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muzzle Token</title>
-    
-    <meta name="theme-color" content="#030303">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <title>MuzzSnap Updating</title>
+    <meta name="theme-color" content="#050505">
+    <link rel="icon" href="muzzsnap.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
-
         :root {
-            --neon: #ff0000;
-            --neon-glow: rgba(255, 0, 0, 0.4);
-            --bg: #0a0a0a;
-            --sidebar-bg: rgba(15, 15, 15, 0.85);
-            --border: rgba(255, 0, 0, 0.15);
+            --red: #ff1a1a;
+            --red-mid: #c40000;
+            --red-deep: #6a0000;
+            --red-glow: rgba(255, 20, 20, 0.45);
+            --bg: #050505;
+            --panel: #0c0c0c;
+            --chrome: #d8d8d8;
+            --chrome-dark: #3a3a3a;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            background: linear-gradient(135deg, #0a0a0a 0%, #0f0000 100%);
+        html, body {
+            min-height: 100%;
+            background: var(--bg);
             color: #fff;
             font-family: 'Rajdhani', sans-serif;
-            overflow-x: hidden;
-            width: 100%;
-            height: 100vh;
-            display: flex;
         }
 
-        /* Sidebar Transparente y Oculto */
-        .sidebar {
-            width: 280px;
-            background: var(--sidebar-bg);
-            backdrop-filter: blur(15px);
-            height: 100vh;
-            padding: 32px 20px;
+        body {
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid var(--border);
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .space {
             position: fixed;
-            left: 0;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
-            transform: translateX(-100%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% 35%, rgba(120, 0, 0, 0.28), transparent 62%),
+                radial-gradient(circle at 50% 100%, rgba(255, 0, 0, 0.08), transparent 45%),
+                linear-gradient(180deg, #000 0%, #0a0000 55%, #050505 100%);
         }
 
-        .sidebar.active { transform: translateX(0); }
-
-        .mobile-menu-btn {
-            position: fixed; top: 20px; left: 20px; z-index: 200;
-            background: rgba(15, 15, 15, 0.95); border: 1px solid var(--border);
-            color: var(--neon); width: 48px; height: 48px; border-radius: 12px;
-            cursor: pointer; backdrop-filter: blur(10px);
-            display: flex; align-items: center; justify-content: center;
+        .grid {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            background-image:
+                linear-gradient(rgba(255, 30, 30, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 30, 30, 0.06) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 20%, transparent 75%);
+            pointer-events: none;
         }
 
-        .logo-container {
-            display: flex; align-items: center; gap: 14px; margin-bottom: 48px;
-            padding-bottom: 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        .scan {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                transparent 2px,
+                rgba(0, 0, 0, 0.12) 3px
+            );
+            opacity: 0.35;
         }
 
-        .logo-icon {
-            width: 52px; height: 52px; background: linear-gradient(135deg, var(--neon), #cc0000);
-            border-radius: 14px; display: flex; align-items: center; justify-content: center;
-            font-size: 26px; box-shadow: 0 4px 20px var(--neon-glow);
+        .stage {
+            position: relative;
+            z-index: 3;
+            flex: 1;
+            width: 100%;
+            max-width: 560px;
+            padding: 48px 24px 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
         }
 
-        .logo-text { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.4rem; }
-        .logo-text span { color: var(--neon); text-shadow: 0 0 10px var(--neon-glow); }
-
-        .nav-item {
-            padding: 14px 16px; margin-bottom: 6px; border-radius: 10px;
-            color: rgba(255, 255, 255, 0.6); cursor: pointer;
-            transition: 0.3s; display: flex; align-items: center; gap: 14px;
-            text-decoration: none;
+        .title-block {
+            text-align: center;
         }
 
-        .nav-item:hover { background: rgba(255, 0, 0, 0.1); color: white; }
-        .nav-item.active { background: rgba(255, 0, 0, 0.15); color: var(--neon); border-left: 3px solid var(--neon); }
-
-        .main-content { flex: 1; height: 100vh; overflow-y: auto; padding-top: 80px; }
-
-        .top-bar {
-            background: rgba(15, 15, 15, 0.8); backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 20px 40px; display: flex; justify-content: flex-end;
-            position: fixed; top: 0; width: 100%; z-index: 50;
+        .title-block h1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
 
-        .cards-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 32px; padding: 40px; max-width: 1400px; margin: 0 auto;
+        .brand {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.7rem, 6vw, 2.55rem);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            line-height: 1.1;
+            background: linear-gradient(180deg, #fff 0%, #cfcfcf 38%, #8a8a8a 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 2px 0 #1a1a1a) drop-shadow(0 8px 18px rgba(255, 0, 0, 0.25));
         }
 
-        .card {
-            background: linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(30, 0, 0, 0.6) 100%);
-            border: 1px solid var(--border); border-radius: 16px;
-            padding: 40px 32px; text-align: center; transition: 0.4s;
-        }
-
-        .card:hover { transform: translateY(-10px); border-color: var(--neon); box-shadow: 0 0 30px var(--neon-glow); }
-        .card-icon { font-size: 3rem; color: var(--neon); margin-bottom: 24px; filter: drop-shadow(0 0 10px var(--neon-glow)); }
-
-        .btn-stake {
-            display: inline-block; margin-top: 15px; padding: 10px 20px;
-            border: 1px solid var(--neon); border-radius: 8px;
-            color: var(--neon); text-decoration: none; font-weight: bold;
-            transition: 0.3s; font-family: 'Orbitron'; font-size: 0.8rem;
-        }
-
-        .btn-stake:hover { background: var(--neon); color: #000; box-shadow: 0 0 20px var(--neon-glow); }
-
-        /* Estilos de Redes Sociales (Original) */
-        .footer { text-align: center; padding: 50px 40px; border-top: 1px solid var(--border); }
-        .footer-copy { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: rgba(255, 255, 255, 0.3); letter-spacing: 0.3em; margin-bottom: 20px; text-transform: uppercase; }
-        .social-links { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-bottom: 20px; }
-        .social-links a {
-            color: rgba(255, 255, 255, 0.5); transition: all 0.3s; text-decoration: none;
-            display: flex; align-items: center; justify-content: center;
-            width: 48px; height: 48px; border-radius: 12px;
-            background: rgba(20, 20, 20, 0.6); border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .social-links a:hover { color: var(--neon); background: rgba(255, 0, 0, 0.1); border-color: var(--neon); transform: translateY(-4px); box-shadow: 0 8px 20px var(--neon-glow); }
-
-        /* Estilo para el email solicitado */
-        .email-contact {
+        .status-row {
+            margin-top: 10px;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            margin-top: 10px;
-            color: var(--neon);
-            text-decoration: none;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
-            font-weight: bold;
-            letter-spacing: 1px;
-            transition: 0.3s;
+            gap: 10px;
         }
-        .email-contact:hover { opacity: 0.8; text-shadow: 0 0 10px var(--neon-glow); }
+
+        .led {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--red);
+            box-shadow:
+                0 0 8px var(--red),
+                0 0 18px var(--red-glow);
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+
+        .status {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: clamp(0.78rem, 2.4vw, 0.95rem);
+            letter-spacing: 0.42em;
+            text-transform: uppercase;
+            color: var(--red);
+            text-shadow: 0 0 16px var(--red-glow);
+        }
+
+        .icon-bezel {
+            position: relative;
+            width: min(78vw, 280px);
+            aspect-ratio: 1;
+            padding: 12px;
+            border-radius: 42px;
+            background:
+                linear-gradient(160deg, #5a5a5a 0%, #1c1c1c 22%, #0a0a0a 50%, #2a2a2a 78%, #111 100%);
+            box-shadow:
+                inset 0 2px 2px rgba(255, 255, 255, 0.35),
+                inset 0 -6px 10px rgba(0, 0, 0, 0.75),
+                0 2px 0 #777,
+                0 6px 0 #1a1a1a,
+                0 14px 0 #050505,
+                0 22px 40px rgba(0, 0, 0, 0.75),
+                0 0 60px rgba(255, 0, 0, 0.22);
+            transform: perspective(900px) rotateX(6deg);
+        }
+
+        .icon-bezel::before {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border-radius: 36px;
+            border: 1px solid rgba(255, 40, 40, 0.45);
+            box-shadow:
+                0 0 18px rgba(255, 0, 0, 0.25),
+                inset 0 0 18px rgba(255, 0, 0, 0.12);
+            pointer-events: none;
+        }
+
+        .icon-bezel img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 32px;
+            display: block;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 168px;
+            padding: 14px 28px 16px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            text-decoration: none;
+            border: 0;
+            cursor: pointer;
+            border-radius: 14px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+
+        .btn-primary {
+            color: #fff;
+            background: linear-gradient(180deg, #ff4a4a 0%, #e01010 38%, #9a0000 100%);
+            box-shadow:
+                inset 0 2px 0 rgba(255, 255, 255, 0.38),
+                inset 0 -3px 0 rgba(80, 0, 0, 0.55),
+                0 3px 0 #5a0000,
+                0 8px 0 #220000,
+                0 14px 28px rgba(255, 0, 0, 0.28);
+        }
+
+        .btn-secondary {
+            color: #f2f2f2;
+            background: linear-gradient(180deg, #2a2a2a 0%, #141414 50%, #0a0a0a 100%);
+            box-shadow:
+                inset 0 2px 0 rgba(255, 255, 255, 0.16),
+                inset 0 -3px 0 rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 30, 30, 0.45),
+                0 3px 0 #3a0000,
+                0 8px 0 #110000,
+                0 14px 28px rgba(0, 0, 0, 0.45);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.08);
+        }
+
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow:
+                inset 0 2px 8px rgba(0, 0, 0, 0.45),
+                0 1px 0 #220000;
+        }
+
+        footer {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            padding: 22px 16px 28px;
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.62rem;
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.38);
+        }
+
+        footer span {
+            color: var(--red);
+            text-shadow: 0 0 10px var(--red-glow);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.82); }
+        }
+
+        @media (max-width: 480px) {
+            .stage { gap: 22px; padding-top: 36px; }
+            .icon-bezel { width: min(72vw, 230px); border-radius: 34px; }
+            .btn { min-width: 0; flex: 1; padding: 14px 12px 16px; letter-spacing: 0.1em; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .led { animation: none; }
+            .btn { transition: none; }
+        }
     </style>
 </head>
 <body>
+    <div class="space"></div>
+    <div class="grid"></div>
+    <div class="scan"></div>
 
-    <button class="mobile-menu-btn" onclick="toggleMenu()">
-        <i class="fas fa-bars" id="menuIcon"></i>
-    </button>
+    <main class="stage">
+        <header class="title-block">
+            <h1>
+                <span class="brand">MuzzSnap</span>
+                <span class="status-row">
+                    <span class="led" aria-hidden="true"></span>
+                    <span class="status">Updating</span>
+                </span>
+            </h1>
+        </header>
 
-    <div class="sidebar" id="sidebar">
-        <div class="logo-container">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div class="logo-icon"><i class="fas fa-bolt"></i></div>
-                <div class="logo-text">MUZZ<span>SNAP</span></div>
-            </div>
+        <div class="icon-bezel">
+            <img src="muzzsnap.jpg" alt="MuzzSnap">
         </div>
 
-        <div class="nav-section">
-            <div class="nav-label">Navigation</div>
-            <a href="https://muzzsnap.com" class="nav-item active"><i class="fas fa-home"></i><span>Home</span></a>
-            <a href="login.html" class="nav-item"><i class="fas fa-rocket"></i><span>MuzzSnap</span></a>
-            <a href="https://www.team.finance/view-coin/0xef3dAa5fDa8Ad7aabFF4658f1F78061fd626B8f0?name=MuzzleToken&symbol=MUZZ&chainid=0x1" target="_blank" class="nav-item">
-                <i class="fas fa-coins"></i><span>Staking</span>
-            </a>
-            <a href="#whitepaper" class="nav-item"><i class="fas fa-file-alt"></i><span>Whitepaper</span></a>
-            <a href="#roadmap" class="nav-item"><i class="fas fa-route"></i><span>Roadmap</span></a>
-            <a href="swap.html" target="_blank" class="nav-item"><i class="fas fa-shopping-cart"></i><span>Buy Muzz</span></a>
-        </div>
+        <nav class="actions" aria-label="Main">
+            <a class="btn btn-primary" href="login.html">MuzzChat</a>
+            <a class="btn btn-secondary" href="https://muzzletoken.com" target="_blank" rel="noopener noreferrer">Web Muzz</a>
+        </nav>
+    </main>
 
-        <button class="disconnect-btn" style="margin-top: auto; padding: 14px; color: var(--neon); border: 1px solid var(--border); border-radius: 10px; background: rgba(0,0,0,0.3);">
-            <i class="fas fa-power-off"></i><span> V 1.5 </span>
-        </button>
-    </div>
-
-    <div class="main-content">
-        <div class="top-bar">
-            <div style="display: flex; gap: 8px;">
-                <button style="padding: 8px 16px; color: white; font-size: 0.8rem; font-weight: bold;"></button>
-                <button style="padding: 8px 16px; color: rgba(255,255,255,0.5); font-size: 0.8rem;"></button>
-            </div>
-        </div>
-
-        <div class="content-area">
-            <div class="hero-section" style="text-align: center; margin-bottom: 60px;">
-                <h1 style="font-family: 'Orbitron'; font-size: clamp(2.5rem, 8vw, 4.5rem); font-weight: 900; color: var(--neon); text-shadow: 0 0 20px var(--neon-glow);">MUZZLE TOKEN</h1>
-                <p style="letter-spacing: 0.3em; color: rgba(255,255,255,0.6); text-transform: uppercase;">Decentralized Ecosystem</p>
-            </div>
-
-            <div class="cards-grid">
-                <div class="card">
-                    <div class="card-icon"><i class="fas fa-project-diagram"></i></div>
-                    <h3 class="card-title">MuzzSocial</h3>
-                    <p class="card-desc">The first truly borderless social grid. Immutable and community-owned.</p>
-                    <div class="card-footer">STAKE: 20M MUZZLE</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon"><i class="fas fa-ghost"></i></div>
-                    <h3 class="card-title">MuzzChat</h3>
-                    <p class="card-desc">Encrypted P2P nodes. Secure 2-room architecture per user.</p>
-                    <div class="card-footer">STAKE: 20M MUZZLE</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon"><i class="fas fa-shield-virus"></i></div>
-                    <h3 class="card-title">MuzzDAO</h3>
-                    <p class="card-desc">The core authority. Propose and execute protocols.</p>
-                    <div class="card-footer">GOVERNANCE OPEN</div>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon"><i class="fas fa-lock"></i></div>
-                    <h3 class="card-title">MUZZ Staking</h3>
-                    <p class="card-desc">Stake your tokens and earn rewards within the ecosystem.</p>
-                    <a href="https://www.team.finance/view-coin/0xef3dAa5fDa8Ad7aabFF4658f1F78061fd626B8f0?name=MuzzleToken&symbol=MUZZ&chainid=0x1" target="_blank" class="btn-stake">ACCESS STAKING</a>
-                </div>
-            </div>
-
-            <div class="footer">
-                <p class="footer-copy">MuzzSnap © 2025</p>
-                <div class="social-links">
-                    <a href="https://x.com/MuzzleToken" target="_blank" title="X (Twitter)"><i class="fab fa-x-twitter"></i></a>
-                    <a href="https://t.me/MuzzSnap" target="_blank" title="Telegram"><i class="fab fa-telegram"></i></a>
-                    <a href="https://www.mexc.com/dex/trade?pair_ca=0x06D9CdDD7FCaF2e93573D04bE5DE2fc4dEA45F45&chain_id=1&token_ca=0xef3dAa5fDa8Ad7aabFF4658f1F78061fd626B8f0" target="_blank" style="font-family: 'Orbitron'; font-weight: 900; font-size: 0.85rem;">MEXC</a>
-                    <a href="https://coinmarketcap.com/currencies/muzzletoken/" target="_blank" title="CoinMarketCap">
-                        <svg style="width: 22px; height: 22px;" viewBox="0 0 128 128" fill="currentColor">
-                            <path d="M96.4 96.5C89.7 103.2 81.1 107.9 71.7 110.2 62.3 112.5 52.5 112.3 43.2 109.7 33.9 107.1 25.5 102.2 18.7 95.5 12 88.8 7.3 80.2 5 71.1 2.7 61.9 2.9 52.3 5.6 43.2 8.3 34.1 13.3 25.9 20.1 19.4 26.9 12.9 35.3 8.4 44.4 6.4 53.6 4.3 63.1 4.7 72 7.5L72 32.5C67.7 31.3 63.2 31.3 58.9 32.4 54.6 33.6 50.7 35.9 47.5 39.1 44.3 42.3 42 46.2 40.8 50.5 39.7 54.8 39.7 59.3 40.9 63.6 42.1 67.9 44.4 71.8 47.6 75 50.8 78.2 54.7 80.5 59 81.7 63.3 82.8 67.8 82.8 72.1 81.7 76.4 80.5 80.3 78.2 83.5 75L96.4 96.5Z"/>
-                        </svg>
-                    </a>
-                    <a href="https://etherscan.io/token/0xef3daa5fda8ad7aabff4658f1f78061fd626b8f0" target="_blank" title="Etherscan">
-                        <i class="fas fa-chart-line"></i>
-                    </a>
-                </div>
-                <a href="mailto:contact@muzzsnap.com" class="email-contact">
-                    <i class="fas fa-envelope"></i> muzzsnapofficial@gmail.com
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function toggleMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const icon = document.getElementById('menuIcon');
-            sidebar.classList.toggle('active');
-            icon.classList.toggle('fa-bars');
-            icon.classList.toggle('fa-times');
-        }
-
-        document.addEventListener('click', function(e) {
-            const sidebar = document.getElementById('sidebar');
-            const btn = document.querySelector('.mobile-menu-btn');
-            if (!sidebar.contains(e.target) && !btn.contains(e.target) && sidebar.classList.contains('active')) {
-                toggleMenu();
-            }
-        });
-    </script>
+    <footer>Powered by: <span>Ryashu &amp; Itsuki</span></footer>
 </body>
 </html>
