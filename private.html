@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>MuzzSnap Private</title>
+  <link rel="icon" href="muzzsnap.jpg">
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" type="text/javascript"></script>
   <style>
     :root{
       --bg:#181d23;
-      --panel:#11161c;
-      --panel-2:#0c1015;
       --soft:#232a33;
       --line:rgba(255,255,255,.08);
       --red:#ff2a2a;
@@ -32,7 +32,7 @@
     .sidebar,.chat{min-height:0}
     .sidebar{background:rgba(10,13,17,.82);backdrop-filter:blur(10px);border-right:1px solid rgba(255,42,42,.14);padding:18px;display:flex;flex-direction:column;gap:16px}
     .brand{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,42,42,.18);border-radius:22px;background:linear-gradient(180deg,rgba(255,42,42,.06),rgba(255,42,42,.02))}
-    .logo{width:46px;height:46px;border-radius:16px;background:linear-gradient(145deg,var(--red),var(--red-2));display:grid;place-items:center;box-shadow:0 0 20px rgba(255,42,42,.22);font-size:20px}
+    .logo{width:46px;height:46px;border-radius:16px;object-fit:cover;box-shadow:0 0 20px rgba(255,42,42,.22)}
     .brand h1{margin:0;font-size:25px;letter-spacing:-1px;font-weight:900;font-style:italic}
     .brand h1 span{color:var(--red)}
     .card{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:22px;padding:14px}
@@ -43,49 +43,37 @@
     .muted{color:var(--muted)}
     .small{font-size:11px}
     .contact-list{display:flex;flex-direction:column;gap:8px;overflow:auto;padding-right:4px}
-    .contact{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;border:1px solid transparent;background:rgba(255,255,255,.02);cursor:pointer;transition:.2s}
+    .contact{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;border:1px solid transparent;background:rgba(255,255,255,.02);cursor:pointer;transition:.2s;width:100%;color:inherit;text-align:left}
     .contact:hover{background:rgba(255,255,255,.04)}
     .contact.active{background:rgba(255,42,42,.08);border-color:rgba(255,42,42,.18)}
     .status{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);display:inline-block;margin-right:8px;flex:0 0 auto}
     .side-actions{display:grid;gap:10px}
     .btn{border:none;border-radius:18px;padding:14px 16px;font-weight:800;cursor:pointer;transition:.2s}
-    .btn.red{background:linear-gradient(145deg,var(--red),var(--red-2));color:white;box-shadow:0 0 18px rgba(255,42,42,.18)}
     .btn.ghost{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--text)}
-    .btn:hover{transform:translateY(-1px)}
     .chat{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;overflow:hidden;background:linear-gradient(180deg,rgba(16,20,25,.8),rgba(8,10,14,.9))}
     .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02);flex:0 0 auto}
     .topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
     .topbar h2{margin:0;font-size:14px;letter-spacing:.16em;color:#ff6565;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .pill{padding:7px 11px;border-radius:999px;background:rgba(255,42,42,.08);border:1px solid rgba(255,42,42,.18);font-size:11px;color:#ff9a9a;font-weight:700}
     .messages{flex:1;min-height:0;overflow:auto;padding:22px 22px calc(22px + var(--safe-bottom));display:flex;flex-direction:column;gap:14px}
-    .day{align-self:center;padding:7px 12px;border-radius:999px;background:rgba(255,42,42,.08);border:1px solid rgba(255,42,42,.15);font-size:10px;letter-spacing:.22em;color:#ff8080;font-weight:800}
     .msg-wrap{display:flex;gap:10px;align-items:flex-end;max-width:82%}
     .msg-wrap.me{align-self:flex-end;flex-direction:row-reverse}
     .bubble{padding:11px 13px;border-radius:18px;background:var(--soft);border:1px solid rgba(255,255,255,.05);line-height:1.4;box-shadow:0 8px 20px rgba(0,0,0,.18);word-break:break-word;font-size:13.5px}
     .msg-wrap.me .bubble{background:linear-gradient(145deg,var(--red),var(--red-2));border-color:transparent}
     .meta{font-size:10px;color:var(--muted);margin:2px 6px}
-    .msg-user{font-weight:800;color:var(--blue);font-size:11px;margin:0 0 6px}
     .composer{padding:16px 18px calc(16px + var(--safe-bottom));border-top:1px solid var(--line);background:rgba(255,255,255,.02);flex:0 0 auto}
     .composer-box{display:flex;gap:12px;align-items:flex-end;background:#0b1015;border:1px solid rgba(255,255,255,.08);border-radius:22px;padding:10px 10px 10px 16px}
-    textarea{flex:1;resize:none;background:transparent;border:none;outline:none;color:var(--text);font:inherit;font-size:14px;line-height:1.4;min-height:24px;max-height:140px;padding:6px 0;-webkit-appearance:none;appearance:none}
-    textarea::placeholder{color:#6f7c8e}
+    textarea{flex:1;resize:none;background:transparent;border:none;outline:none;color:var(--text);font:inherit;font-size:14px;line-height:1.4;min-height:24px;max-height:140px;padding:6px 0}
     .send{width:50px;height:50px;border-radius:16px;border:none;background:linear-gradient(145deg,var(--red),var(--red-2));color:#fff;font-size:18px;cursor:pointer;flex:0 0 auto}
     .empty{display:grid;place-items:center;height:100%;padding:24px;text-align:center;color:var(--muted)}
     .mobile-top{display:none;flex:0 0 auto}
     @media (max-width: 920px){
-      .app{
-        grid-template-columns:1fr;
-        height:100dvh;
-        min-height:100dvh;
-        padding:0;
-      }
+      .app{grid-template-columns:1fr;height:100dvh;padding:0}
       .sidebar{display:none}
       .chat{height:100dvh;min-height:0;border:none}
       .mobile-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
-      .topbar{padding:14px 14px 12px}
-      .messages{padding:14px;flex:1;min-height:0;overflow:auto}
-      .composer{position:sticky;bottom:0;left:0;right:0;z-index:4;padding:12px calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));background:linear-gradient(180deg,rgba(17,22,28,.92),rgba(11,16,21,.98));backdrop-filter:blur(8px)}
-      .composer-box{border-radius:20px}
+      .messages{padding:14px}
+      .composer{padding:12px calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left))}
       .msg-wrap{max-width:92%}
     }
   </style>
@@ -94,38 +82,32 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo">👻</div>
+        <img src="muzzsnap.jpg" alt="MuzzSnap" class="logo">
         <h1>MUZZ<span>SNAP</span></h1>
       </div>
-
       <div class="card">
         <p class="section-title">Private Access</p>
         <div class="user-badge">
           <div class="avatar red" id="meAvatar">M</div>
           <div>
             <div style="font-weight:800" id="meName">Node_User</div>
-            <div class="muted small" id="meSubtext">Encrypted private inbox</div>
+            <div class="muted small" id="meSubtext">Wallet + 2M MUZZ</div>
           </div>
         </div>
       </div>
-
       <div class="card" style="min-height:0;display:flex;flex-direction:column;flex:1">
         <p class="section-title">Conversations</p>
         <div class="contact-list" id="contactList"></div>
       </div>
-
       <div class="side-actions">
         <button class="btn ghost" onclick="window.location.href='chat.html'">← Back to Chat</button>
-        <button class="btn red" onclick="clearPrivateDemo()">Clear demo inbox</button>
       </div>
     </aside>
-
     <section class="chat">
       <div class="mobile-top">
         <button class="btn ghost" style="padding:10px 12px;border-radius:14px" onclick="window.location.href='chat.html'">← Back</button>
         <div style="font-weight:900;letter-spacing:.08em">MUZZ<span style="color:var(--red)">SNAP</span></div>
       </div>
-
       <div class="topbar" id="chatHeader"></div>
       <div class="messages" id="messages"></div>
       <div class="composer">
@@ -138,9 +120,9 @@
   </div>
 
   <script>
-    const DEMO_KEY = 'muzz_private_demo_v2';
     const MUZZ_TOKEN = '0xef3dAa5fDa8Ad7aabFF4658f1F78061fd626B8f0';
     const MUZZ_MIN_REQUIRED = 2000000;
+    const ONLINE_TTL_MS = 45000;
     const ADMIN_WALLETS = [
       '0x208157b5ec396759e8754058108ecf53e32392ff',
       '0xfab5835ca14fb3f9f978c5e4d733734e6394e03f',
@@ -164,275 +146,70 @@
     if (!firebase.apps.length) firebase.initializeApp(fbConfig);
     const db = firebase.database();
 
-    const SYSTEM_CHATS = {
-      support: {
-        id: 'support',
-        name: 'Muzz Support',
-        status: 'online',
-        subtitle: 'Encrypted help desk',
-        avatar: '🛡️',
-        messages: [
-          { from: 'them', text: 'Wallets that log in through chat are listed below automatically.', time: '8:55 AM' },
-          { from: 'them', text: 'This private inbox still stores demo messages only in your browser for now.', time: '8:56 AM' }
-        ]
-      }
-    };
-
     const meRaw = sessionStorage.getItem('muzz_wallet_address') || '';
     const meWallet = String(meRaw || '').trim().toLowerCase();
-    const storedRole = sessionStorage.getItem('muzz_user_role') || 'guest';
     const storedAdmin = sessionStorage.getItem('muzz_is_admin') === 'true';
     const isGuest = !meWallet || meWallet.startsWith('guest_');
     const isAdmin = storedAdmin || ADMIN_WALLETS.includes(meWallet);
-    const meName = isGuest ? meRaw.replace('guest_','') : (isAdmin && meWallet === ADMIN_WALLETS[0] ? 'Ryachu' : isAdmin && meWallet === ADMIN_WALLETS[1] ? 'Itsuki' : isAdmin && meWallet === ADMIN_WALLETS[2] ? 'Esteban' : `Node_${meWallet.slice(-4) || 'User'}`);
+    const meRole = meWallet === ADMIN_WALLETS[0] ? 'ryachu' : meWallet === ADMIN_WALLETS[1] ? 'itsuki' : meWallet === ADMIN_WALLETS[2] ? 'esteban' : 'user';
+    const meName = isGuest ? meRaw.replace('guest_','') : (meRole === 'user' ? `Node_${meWallet.slice(-4) || 'User'}` : (meRole === 'ryachu' ? 'Ryachu' : meRole === 'itsuki' ? 'Itsuki' : 'Esteban'));
+    const meIdentity = isGuest ? `guest_${meName}` : `wallet_${meWallet}`;
 
-    let store = loadStore();
-    let activeId = Object.keys(store)[0] || null;
-
-    function clone(obj){
-      return JSON.parse(JSON.stringify(obj));
-    }
-
-    function loadStore(){
-      try{
-        const raw = localStorage.getItem(DEMO_KEY);
-        if(raw){
-          const parsed = JSON.parse(raw);
-          if(parsed && typeof parsed === 'object'){
-            return { ...clone(SYSTEM_CHATS), ...parsed };
-          }
-        }
-      }catch(e){}
-      const seeded = clone(SYSTEM_CHATS);
-      localStorage.setItem(DEMO_KEY, JSON.stringify(seeded));
-      return seeded;
-    }
-
-    function saveStore(){
-      localStorage.setItem(DEMO_KEY, JSON.stringify(store));
-    }
-
-    function initials(text){
-      return (text || 'M').replace(/[^a-zA-Z0-9]/g,'').slice(0,1).toUpperCase() || 'M';
-    }
+    let contacts = [];
+    let activeWallet = null;
+    let messages = [];
+    let inboxUnsub = null;
 
     function escapeHtml(str){
       return String(str)
         .replace(/&/g,'&amp;')
         .replace(/</g,'&lt;')
         .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#039;');
+        .replace(/"/g,'&quot;');
     }
-
-    function shortenWallet(wallet){
-      if(!wallet) return 'Wallet contact';
-      return `${wallet.slice(0,6)}...${wallet.slice(-4)}`;
-    }
-
-    function walletAvatarByRole(role){
-      if(role === 'ryachu') return '👑';
-      if(role === 'itsuki') return '💎';
-      if(role === 'esteban') return '🛡️';
-      return '👤';
-    }
-
-    function roleDisplayName(wallet, username, role){
-      if(role === 'ryachu') return 'Ryachu';
-      if(role === 'itsuki') return 'Itsuki';
-      if(role === 'esteban') return 'Esteban';
-      return username || `Node_${String(wallet || '').slice(-4)}`;
-    }
-
-    function renderMe(){
-      document.getElementById('meName').textContent = meName || 'Node_User';
-      document.getElementById('meAvatar').textContent = initials(meName || 'M');
-      document.getElementById('meSubtext').textContent = isAdmin ? 'Admin private access' : 'Encrypted private inbox';
-    }
-
-    function renderContacts(){
-      const list = document.getElementById('contactList');
-      list.innerHTML = '';
-      Object.values(store).forEach(chat => {
-        const last = chat.messages[chat.messages.length - 1];
-        const row = document.createElement('button');
-        row.className = 'contact' + (chat.id === activeId ? ' active' : '');
-        row.innerHTML = `
-          <div class="avatar">${chat.avatar || initials(chat.name)}</div>
-          <div style="min-width:0;flex:1;text-align:left">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(chat.name)}</div>
-              <div class="small muted">${last ? escapeHtml(last.time) : (chat.status === 'online' ? 'online' : '')}</div>
-            </div>
-            <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-              ${last ? escapeHtml(last.text) : escapeHtml(chat.subtitle || '')}
-            </div>
-          </div>
-        `;
-        row.onclick = () => {
-          activeId = chat.id;
-          autoResizeInput();
-          render();
-        };
-        list.appendChild(row);
-      });
-    }
-
-    function renderHeader(chat){
-      const el = document.getElementById('chatHeader');
-      if(!chat){
-        el.innerHTML = `
-          <div class="topbar-left">
-            <div class="avatar">🛡️</div>
-            <div style="min-width:0">
-              <h2>PRIVATE</h2>
-              <div class="small muted">No conversation selected.</div>
-            </div>
-          </div>
-          <div class="pill">E2EE demo</div>
-        `;
-        return;
-      }
-      el.innerHTML = `
-        <div class="topbar-left">
-          <div class="avatar">${chat.avatar || initials(chat.name)}</div>
-          <div style="min-width:0">
-            <h2>${escapeHtml(chat.name)}</h2>
-            <div class="small muted"><span class="status" style="background:${chat.status === 'online' ? 'var(--green)' : '#5f6b7a'}; box-shadow:${chat.status === 'online' ? '0 0 10px var(--green)' : 'none'}"></span>${chat.status === 'online' ? 'Online' : 'Offline'} · ${escapeHtml(chat.subtitle || 'Private chat')}</div>
-          </div>
-        </div>
-        <div class="pill">E2EE demo</div>
-      `;
-    }
-
-    function renderMessages(chat){
-      const box = document.getElementById('messages');
-      if(!chat){
-        box.innerHTML = '<div class="empty">No conversation selected.</div>';
-        return;
-      }
-
-      let html = '<div class="day">TODAY</div>';
-      chat.messages.forEach(msg => {
-        const me = msg.from === 'me';
-        html += `
-          <div class="msg-wrap ${me ? 'me' : ''}">
-            <div class="avatar ${me ? 'red' : ''}" style="width:36px;height:36px;border-radius:12px;font-size:14px">${me ? initials(meName) : (chat.avatar || initials(chat.name))}</div>
-            <div>
-              <div class="meta">${me ? escapeHtml(meName) : escapeHtml(chat.name)} · ${escapeHtml(msg.time)}</div>
-              <div class="bubble">
-                ${!me ? `<div class="msg-user">${escapeHtml(chat.name)}</div>` : ''}
-                ${escapeHtml(msg.text)}
-              </div>
-            </div>
-          </div>
-        `;
-      });
-      box.innerHTML = html;
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function sendMessage(){
-      const input = document.getElementById('messageInput');
-      const text = input.value.trim();
-      if(!text) return;
-      const chat = store[activeId];
-      if(!chat) return;
-
-      const now = new Date();
-      const time = now.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-      chat.messages.push({ from:'me', text, time });
-      saveStore();
-      input.value = '';
-      autoResizeInput();
-      render();
-    }
-
-    function render(){
-      const chat = store[activeId];
-      renderMe();
-      renderContacts();
-      renderHeader(chat);
-      renderMessages(chat);
-    }
-
-    function clearPrivateDemo(){
-      if(confirm('Clear all private demo conversations?')){
-        const fresh = clone(SYSTEM_CHATS);
-        for(const [id, chat] of Object.entries(store)){
-          if(id.startsWith('wallet_')){
-            fresh[id] = {
-              ...chat,
-              messages: []
-            };
-          }
-        }
-        store = fresh;
-        saveStore();
-        activeId = Object.keys(store)[0] || null;
-        autoResizeInput();
-        render();
-      }
-    }
-
-    const privateInput = document.getElementById('messageInput');
-
-    function autoResizeInput(){
-      privateInput.style.height = '26px';
-      privateInput.style.height = Math.min(privateInput.scrollHeight, 140) + 'px';
+    function initials(text){ return (text || 'M').replace(/[^a-zA-Z0-9]/g,'').slice(0,1).toUpperCase() || 'M'; }
+    function shortenWallet(wallet){ if(!wallet) return ''; return wallet.slice(0,6) + '...' + wallet.slice(-4); }
+    function threadId(a,b){ return [String(a).toLowerCase(), String(b).toLowerCase()].sort().join('_'); }
+    function isFresh(ts){ return Number(ts || 0) && (Date.now() - Number(ts) < ONLINE_TTL_MS); }
+    function formatTime(ts){
+      const d = new Date(Number(ts || Date.now()));
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
     }
 
     async function validatePrivateAccess(){
-      if(!meRaw){
-        window.location.href = 'login.html';
-        return false;
-      }
-
+      if(!meRaw){ window.location.href = 'login.html'; return false; }
       if(isGuest){
         alert('Wallet login is required to access MUZZ PRIVATE.');
         window.location.href = 'chat.html';
         return false;
       }
-
-      if(isAdmin){
-        return true;
-      }
-
+      if(isAdmin) return true;
       if(typeof window.ethereum === 'undefined' || typeof ethers === 'undefined'){
         alert('A Web3 wallet is required to verify your MUZZ balance.');
         window.location.href = 'chat.html';
         return false;
       }
-
       try{
         const currentChain = await window.ethereum.request({ method:'eth_chainId' });
         if(currentChain !== '0x1'){
           try{
-            await window.ethereum.request({
-              method:'wallet_switchEthereumChain',
-              params:[{ chainId:'0x1' }]
-            });
+            await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0x1' }] });
           }catch(err){
             alert('Please switch to Ethereum Mainnet to access MUZZ PRIVATE.');
             window.location.href = 'chat.html';
             return false;
           }
         }
-
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const token = new ethers.Contract(MUZZ_TOKEN, ERC20_ABI, provider);
-        const [rawBalance, decimals] = await Promise.all([
-          token.balanceOf(meWallet),
-          token.decimals()
-        ]);
+        const [rawBalance, decimals] = await Promise.all([token.balanceOf(meWallet), token.decimals()]);
         const formattedBalance = parseFloat(ethers.utils.formatUnits(rawBalance, decimals));
-
         if(formattedBalance < MUZZ_MIN_REQUIRED){
-          alert(`Access to MUZZ PRIVATE requires at least 2,000,000 MUZZ tokens. Your current balance is ${formattedBalance.toLocaleString(undefined,{maximumFractionDigits:2})} MUZZ.`);
+          alert('Access to MUZZ PRIVATE requires at least 2,000,000 MUZZ tokens. Your current balance is ' + formattedBalance.toLocaleString(undefined,{maximumFractionDigits:2}) + ' MUZZ.');
           window.location.href = 'chat.html';
           return false;
         }
-
         return true;
       }catch(err){
         console.error('Private validation failed:', err);
@@ -442,68 +219,243 @@
       }
     }
 
-    function syncWalletRegistry(){
-      db.ref('walletRegistry').on('value', snap => {
-        const registry = snap.val() || {};
-        const previous = store;
-        const nextStore = clone(SYSTEM_CHATS);
+    function renderMe(){
+      document.getElementById('meName').textContent = meName || 'Node_User';
+      document.getElementById('meAvatar').textContent = initials(meName || 'M');
+      document.getElementById('meSubtext').textContent = isAdmin ? 'Admin private access' : 'Wallet + 2M MUZZ verified';
+    }
 
-        const entries = Object.values(registry).filter(entry => entry && entry.wallet);
-        entries.sort((a,b) => {
-          const aAdmin = a.isAdmin ? 1 : 0;
-          const bAdmin = b.isAdmin ? 1 : 0;
-          if (aAdmin !== bAdmin) return bAdmin - aAdmin;
-          const aActive = a.active ? 1 : 0;
-          const bActive = b.active ? 1 : 0;
-          if (aActive !== bActive) return bActive - aActive;
-          return String(a.username || a.wallet).localeCompare(String(b.username || b.wallet));
-        });
-
-        entries.forEach(entry => {
-          const wallet = String(entry.wallet || '').toLowerCase();
-          if(!wallet) return;
-          const id = `wallet_${wallet}`;
-          const existing = previous[id] || {};
-          nextStore[id] = {
-            id,
-            name: roleDisplayName(wallet, entry.username, entry.role),
-            status: entry.active ? 'online' : 'offline',
-            subtitle: shortenWallet(wallet),
-            avatar: walletAvatarByRole(entry.role),
-            messages: Array.isArray(existing.messages) ? existing.messages : [],
-            wallet,
-            role: entry.role || 'user'
-          };
-        });
-
-        store = nextStore;
-        saveStore();
-
-        if(!store[activeId]){
-          activeId = Object.keys(store).find(id => id.startsWith('wallet_')) || Object.keys(store)[0] || null;
-        }
-
-        render();
+    function renderContacts(){
+      const list = document.getElementById('contactList');
+      list.innerHTML = '';
+      if(!contacts.length){
+        list.innerHTML = '<div class="muted small">No wallet contacts yet.</div>';
+        return;
+      }
+      contacts.forEach(chat => {
+        const row = document.createElement('button');
+        row.className = 'contact' + (chat.wallet === activeWallet ? ' active' : '');
+        row.innerHTML = `
+          <div class="avatar">${escapeHtml(chat.avatar)}</div>
+          <div style="min-width:0;flex:1;text-align:left">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(chat.name)}</div>
+              <div class="small muted">${chat.online ? 'online' : ''}</div>
+            </div>
+            <div class="small muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(chat.lastText || chat.subtitle || '')}</div>
+          </div>
+        `;
+        row.onclick = () => openThread(chat.wallet);
+        list.appendChild(row);
       });
     }
 
+    function renderHeader(){
+      const el = document.getElementById('chatHeader');
+      const chat = contacts.find(c => c.wallet === activeWallet);
+      if(!chat){
+        el.innerHTML = `
+          <div class="topbar-left">
+            <div class="avatar">🛡️</div>
+            <div style="min-width:0">
+              <h2>PRIVATE</h2>
+              <div class="small muted">Select a wallet conversation.</div>
+            </div>
+          </div>
+          <div class="pill">2M MUZZ</div>
+        `;
+        return;
+      }
+      el.innerHTML = `
+        <div class="topbar-left">
+          <div class="avatar">${escapeHtml(chat.avatar)}</div>
+          <div style="min-width:0">
+            <h2>${escapeHtml(chat.name)}</h2>
+            <div class="small muted"><span class="status" style="background:${chat.online ? 'var(--green)' : '#5f6b7a'};box-shadow:${chat.online ? '0 0 10px var(--green)' : 'none'}"></span>${chat.online ? 'Online' : 'Offline'} · ${escapeHtml(chat.subtitle)}</div>
+          </div>
+        </div>
+        <div class="pill">PRIVATE</div>
+      `;
+    }
+
+    function renderMessages(){
+      const box = document.getElementById('messages');
+      if(!activeWallet){
+        if(!contacts.length){
+          box.innerHTML = '<div class="empty">No wallet contacts yet.</div>';
+          return;
+        }
+        box.innerHTML = contacts.map(chat => `
+          <button class="contact" data-wallet="${escapeHtml(chat.wallet)}" style="max-width:100%">
+            <div class="avatar">${escapeHtml(chat.avatar)}</div>
+            <div style="min-width:0;flex:1;text-align:left">
+              <div style="font-weight:800">${escapeHtml(chat.name)} ${chat.online ? '· online' : ''}</div>
+              <div class="small muted">${escapeHtml(chat.subtitle)}</div>
+            </div>
+          </button>
+        `).join('');
+        box.querySelectorAll('[data-wallet]').forEach(btn => {
+          btn.onclick = () => openThread(btn.getAttribute('data-wallet'));
+        });
+        return;
+      }
+      if(!messages.length){
+        box.innerHTML = '<div class="empty">No messages yet. Say hello.</div>';
+        return;
+      }
+      box.innerHTML = messages.map(msg => {
+        const mine = String(msg.from || '').toLowerCase() === meWallet;
+        const name = mine ? meName : (contacts.find(c => c.wallet === activeWallet) || {}).name || 'User';
+        return `
+          <div class="msg-wrap ${mine ? 'me' : ''}">
+            <div class="avatar ${mine ? 'red' : ''}" style="width:36px;height:36px;border-radius:12px;font-size:14px">${escapeHtml(initials(name))}</div>
+            <div>
+              <div class="meta">${escapeHtml(name)} · ${escapeHtml(formatTime(msg.timestamp))}</div>
+              <div class="bubble">${escapeHtml(msg.text || '')}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function render(){
+      renderMe();
+      renderContacts();
+      renderHeader();
+      renderMessages();
+    }
+
+    function openThread(wallet){
+      activeWallet = wallet;
+      if(inboxUnsub){ try{ inboxUnsub(); }catch(e){} }
+      const ref = db.ref('privateInbox/' + threadId(meWallet, wallet) + '/messages').limitToLast(100);
+      const handler = snap => {
+        const val = snap.val() || {};
+        messages = Object.keys(val).map(id => ({ id, ...val[id] })).sort((a,b) => Number(a.timestamp||0) - Number(b.timestamp||0));
+        render();
+      };
+      ref.on('value', handler);
+      inboxUnsub = () => ref.off('value', handler);
+      render();
+    }
+
+    async function sendMessage(){
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if(!text || !activeWallet) return;
+      try{
+        const tid = threadId(meWallet, activeWallet);
+        await db.ref('privateInbox/' + tid + '/messages').push({
+          from: meWallet,
+          to: activeWallet,
+          username: meName,
+          text,
+          timestamp: Date.now()
+        });
+        const preview = { lastText: text, lastAt: Date.now() };
+        await db.ref('privateIndex/' + meWallet + '/' + activeWallet).update(preview);
+        await db.ref('privateIndex/' + activeWallet + '/' + meWallet).update(preview);
+        input.value = '';
+        autoResizeInput();
+      }catch(err){
+        console.error(err);
+        alert('Could not send private message.');
+      }
+    }
+
+    function mergeContacts(registry, statusMap, indexMap){
+      const map = {};
+      Object.values(registry || {}).forEach(entry => {
+        const wallet = String(entry.wallet || '').toLowerCase();
+        if(!wallet || wallet === meWallet) return;
+        const identity = 'wallet_' + wallet;
+        const live = statusMap[identity] || {};
+        map[wallet] = {
+          wallet,
+          name: entry.role === 'ryachu' ? 'Ryachu' : entry.role === 'itsuki' ? 'Itsuki' : entry.role === 'esteban' ? 'Esteban' : (entry.username || ('Node_' + wallet.slice(-4))),
+          avatar: entry.role === 'ryachu' ? '👑' : entry.role === 'itsuki' ? '💎' : entry.role === 'esteban' ? '🛡️' : '👤',
+          subtitle: shortenWallet(wallet),
+          lastText: '',
+          lastAt: Number(entry.lastSeen || 0),
+          online: isFresh(live.lastSeen || entry.lastSeen)
+        };
+      });
+      Object.keys(indexMap || {}).forEach(wallet => {
+        const w = String(wallet || '').toLowerCase();
+        if(!w || w === meWallet) return;
+        const idx = indexMap[wallet] || {};
+        if(!map[w]){
+          map[w] = {
+            wallet: w,
+            name: 'Node_' + w.slice(-4),
+            avatar: '👤',
+            subtitle: shortenWallet(w),
+            lastText: idx.lastText || '',
+            lastAt: Number(idx.lastAt || 0),
+            online: false
+          };
+        } else {
+          map[w].lastText = idx.lastText || map[w].lastText;
+          map[w].lastAt = Number(idx.lastAt || map[w].lastAt || 0);
+        }
+      });
+      contacts = Object.values(map).sort((a,b) => {
+        if(a.online !== b.online) return a.online ? -1 : 1;
+        return Number(b.lastAt||0) - Number(a.lastAt||0);
+      });
+      if(activeWallet && !contacts.some(c => c.wallet === activeWallet)){
+        activeWallet = contacts[0] ? contacts[0].wallet : null;
+      }
+      render();
+    }
+
+    function startLiveData(){
+      let registry = {};
+      let statusMap = {};
+      let indexMap = {};
+      const refresh = () => mergeContacts(registry, statusMap, indexMap);
+
+      db.ref('walletRegistry').on('value', snap => { registry = snap.val() || {}; refresh(); });
+      db.ref('status').on('value', snap => { statusMap = snap.val() || {}; refresh(); });
+      db.ref('privateIndex/' + meWallet).on('value', snap => { indexMap = snap.val() || {}; refresh(); });
+      setInterval(refresh, 10000);
+    }
+
     function markWalletPresence(){
-      if(!meWallet || isGuest) return;
-      const registryRef = db.ref(`walletRegistry/${meWallet}`);
-      registryRef.update({
+      const statusRef = db.ref('status/' + meIdentity);
+      const write = () => statusRef.set({
+        uid: (firebase.auth().currentUser || {}).uid || null,
+        username: meName,
+        role: meRole,
+        wallet: meWallet,
+        identityKey: meIdentity,
+        lastSeen: Date.now()
+      });
+      db.ref('.info/connected').on('value', snap => {
+        if(snap.val() !== true) return;
+        statusRef.onDisconnect().remove();
+        db.ref('walletRegistry/' + meWallet + '/active').onDisconnect().set(false);
+        write();
+      });
+      setInterval(write, 20000);
+      db.ref('walletRegistry/' + meWallet).update({
         wallet: meWallet,
         username: meName,
-        role: isAdmin ? (meWallet === ADMIN_WALLETS[0] ? 'ryachu' : meWallet === ADMIN_WALLETS[1] ? 'itsuki' : 'esteban') : 'user',
+        role: meRole,
         isAdmin,
         isWallet: true,
         lastLogin: firebase.database.ServerValue.TIMESTAMP,
         lastSeen: firebase.database.ServerValue.TIMESTAMP,
         active: true
       });
-      registryRef.child('active').onDisconnect().set(false);
-      registryRef.child('lastSeen').onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
     }
 
+    const privateInput = document.getElementById('messageInput');
+    function autoResizeInput(){
+      privateInput.style.height = '26px';
+      privateInput.style.height = Math.min(privateInput.scrollHeight, 140) + 'px';
+    }
     document.getElementById('sendBtn').addEventListener('click', sendMessage);
     privateInput.addEventListener('input', autoResizeInput);
     privateInput.addEventListener('keydown', e => {
@@ -513,18 +465,13 @@
       }
     });
 
-    window.addEventListener('resize', () => {
-      autoResizeInput();
-      const box = document.getElementById('messages');
-      if(box) box.scrollTop = box.scrollHeight;
-    });
-
     (async function boot(){
       const allowed = await validatePrivateAccess();
       if(!allowed) return;
+      try { await firebase.auth().signInAnonymously(); } catch (err) { console.error(err); }
       autoResizeInput();
       markWalletPresence();
-      syncWalletRegistry();
+      startLiveData();
       render();
     })();
   </script>

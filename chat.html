@@ -276,6 +276,21 @@
       display: none;
     }
 
+    .online-count {
+      min-width: 40px;
+      height: 40px;
+      padding: 0 10px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+      color: #39ff14;
+      box-shadow: inset 0 0 0 1px rgba(57,255,20,0.35), 0 0 12px rgba(57,255,20,0.12);
+    }
+
     .drawer-backdrop {
       display: none;
     }
@@ -368,10 +383,24 @@
     };
 
     const CHANNELS = [
-      { id:"general", name:"GENERAL" },
-      { id:"spanish", name:"ESPAÑOL" },
-      { id:"dao", name:"DAO" }
+      { id:"general", name:"GENERAL" }
     ];
+    const ONLINE_TTL_MS = 45000;
+
+    const liveOnlineList = (raw) => {
+      const now = Date.now();
+      const map = new Map();
+      Object.values(raw || {}).forEach((user) => {
+        if (!user) return;
+        const seen = Number(user.lastSeen || 0);
+        if (!seen || now - seen > ONLINE_TTL_MS) return;
+        const key = user.identityKey || user.wallet || user.uid;
+        if (!key) return;
+        const prev = map.get(key);
+        if (!prev || seen >= Number(prev.lastSeen || 0)) map.set(key, user);
+      });
+      return Array.from(map.values()).sort((a, b) => String(a.username || '').localeCompare(String(b.username || '')));
+    };
 
     const safeKey = (value) => String(value || '').replace(/[.#$/\[\]]/g, '_');
     const makeIdentityKey = (raw) => {
@@ -399,7 +428,9 @@
       const [banPanel, setBanPanel] = useState(false);
       const [mutePanel, setMutePanel] = useState(false);
       const [notice, setNotice] = useState({show:false,title:"",desc:"",tone:"red"});
+      const [nowTick, setNowTick] = useState(Date.now());
       const bottomRef = useRef(null);
+      const presenceRawRef = useRef({});
 
       const toggleTheme = () => {
         setDarkMode((prev) => {
@@ -487,20 +518,43 @@
           };
           setMe(currentUser);
 
-          statusRef = db.ref(`status/${user.uid}`);
-          statusRef.onDisconnect().remove();
-          statusRef.set({
-            uid: user.uid,
-            username,
-            role,
-            wallet: wallet || null,
-            identityKey,
-            lastSeen: Date.now()
+          statusRef = db.ref(`status/${identityKey}`);
+          const writePresence = () => {
+            const payload = {
+              uid: user.uid,
+              username,
+              role,
+              wallet: wallet || null,
+              identityKey,
+              lastSeen: Date.now()
+            };
+            statusRef.set(payload);
+            if (isWallet && wallet) {
+              db.ref(`walletRegistry/${wallet}`).update({
+                lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                active: true
+              });
+            }
+          };
+
+          const connectedRef = db.ref('.info/connected');
+          connectedRef.on('value', (snap) => {
+            if (snap.val() !== true) return;
+            statusRef.onDisconnect().remove();
+            if (isWallet && wallet) {
+              db.ref(`walletRegistry/${wallet}/active`).onDisconnect().set(false);
+              db.ref(`walletRegistry/${wallet}/lastSeen`).onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+            }
+            writePresence();
           });
+
+          const beat = setInterval(writePresence, 20000);
+          statusRef._beat = beat;
 
           statusListRef = db.ref('status');
           statusListRef.on('value', (snap) => {
-            setOnlineUsers(snap.val() ? Object.values(snap.val()) : []);
+            presenceRawRef.current = snap.val() || {};
+            setOnlineUsers(liveOnlineList(presenceRawRef.current));
           });
 
           mutedRef = db.ref('muted');
@@ -541,12 +595,22 @@
         });
 
         return () => {
-          try { if (statusRef) statusRef.off(); } catch {}
+          try { if (statusRef && statusRef._beat) clearInterval(statusRef._beat); } catch {}
+          try { if (statusRef) { statusRef.onDisconnect().cancel(); statusRef.remove(); statusRef.off(); } } catch {}
           try { if (statusListRef) statusListRef.off(); } catch {}
           try { if (bannedRef) bannedRef.off(); } catch {}
           try { if (mutedRef) mutedRef.off(); } catch {}
           try { if (registryRef) registryRef.off(); } catch {}
+          try { db.ref('.info/connected').off(); } catch {}
         };
+      }, []);
+
+      useEffect(() => {
+        const tick = setInterval(() => {
+          setNowTick(Date.now());
+          setOnlineUsers(liveOnlineList(presenceRawRef.current));
+        }, 10000);
+        return () => clearInterval(tick);
       }, []);
 
       useEffect(() => {
@@ -655,10 +719,6 @@
           console.error('Private access check failed:', err);
           showNotice('VERIFICATION ERROR', 'Your MUZZ balance could not be verified. Please reopen your wallet and try again.', 'red');
         }
-      };
-
-      const goToGame = () => {
-        window.location.href = 'game.html';
       };
 
       const sendMessage = async () => {
@@ -836,18 +896,17 @@
                   <i className={`fas ${me.isWallet ? 'fa-user-secret' : 'fa-lock'} mr-2`}></i>
                   Private
                 </button>
-                <button onClick={goToGame} className="nav-btn">
-                  <i className="fas fa-gamepad mr-2"></i>
-                  Game
-                </button>
                 <p className="text-[10px] text-gray-600 px-1 mt-1 uppercase tracking-wider leading-snug">Wallet + 2M MUZZ · Admin bypass</p>
               </div>
 
               <div>
                 <p className="text-[10px] text-gray-500 font-bold tracking-[0.28em] mb-2 uppercase">Online — {onlineUsers.length}</p>
                 <div className="space-y-2">
+                  {onlineUsers.length === 0 && (
+                    <p className="text-[11px] text-gray-600 px-1">Nadie conectado</p>
+                  )}
                   {onlineUsers.map((user, idx) => (
-                    <div key={`${user.uid || user.identityKey || idx}`} className="flex items-center gap-2 px-1">
+                    <div key={`${user.identityKey || user.uid || idx}`} className="flex items-center gap-2 px-1">
                       <span className="online-dot"></span>
                       <span className={`text-[12px] truncate font-bold uppercase flex-1 ${roleClass(user.role,'text-gray-400')}`}>
                         {roleBadge(user.role)}{user.username}
@@ -859,7 +918,11 @@
             </div>
 
             <button
-              onClick={() => { sessionStorage.clear(); window.location.href = 'login.html'; }}
+              onClick={() => {
+                try { if (me?.identityKey) db.ref(`status/${me.identityKey}`).remove(); } catch {}
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+              }}
               className="mt-4 w-full py-3 text-[11px] uppercase font-black tracking-widest rounded-xl"
               style={{color:'#ff3a3a', boxShadow:'inset 0 0 0 1px rgba(255,30,30,0.35)'}}
             >
@@ -888,26 +951,15 @@
                 <img src="muzzsnap.jpg" alt="" className="header-logo" />
                 <div className="min-w-0">
                   <h2 className="text-xs md:text-sm font-black tracking-[0.18em] text-red-500 uppercase truncate">/ {activeChannel.name}</h2>
-                  <p className="text-[10px] tracking-[0.16em] uppercase text-gray-500 lg:hidden">{onlineUsers.length} online</p>
                 </div>
               </div>
-              <button type="button" onClick={toggleTheme} className="icon-btn" aria-label="Toggle theme">
-                {darkMode ? <i className="fas fa-sun text-yellow-400"></i> : <i className="fas fa-moon text-blue-500"></i>}
-              </button>
-            </header>
-
-            <div className="channel-strip">
-              {CHANNELS.map((channel) => (
-                <button
-                  key={channel.id}
-                  type="button"
-                  onClick={() => setActiveChannel(channel)}
-                  className={`chip ${activeChannel.id === channel.id ? 'active' : ''}`}
-                >
-                  {channel.name}
+              <div className="flex items-center gap-2">
+                <div className="online-count" title="Connected now">{onlineUsers.length}</div>
+                <button type="button" onClick={toggleTheme} className="icon-btn" aria-label="Toggle theme">
+                  {darkMode ? <i className="fas fa-sun text-yellow-400"></i> : <i className="fas fa-moon text-blue-500"></i>}
                 </button>
-              ))}
-            </div>
+              </div>
+            </header>
 
             <div className="msg-list flex-1 min-h-0 overflow-y-auto px-3 py-4 md:px-6 md:py-6 flex flex-col gap-4 custom-scroll">
               {messages.map((msg, index) => {
