@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>MuzzSnap | Login</title>
     <meta name="theme-color" content="#050505">
     <link rel="icon" href="muzzsnap.jpg">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -354,6 +355,54 @@
             text-shadow: 0 0 10px var(--red-glow);
         }
 
+        .sign-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(10px);
+        }
+
+        .sign-card {
+            width: min(92vw, 360px);
+            padding: 28px 22px 24px;
+            border-radius: 22px;
+            text-align: center;
+            background: linear-gradient(180deg, #1a1a1a, #0c0c0c);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.12),
+                0 0 0 1px rgba(255,30,30,0.35),
+                0 24px 50px rgba(0,0,0,0.55);
+        }
+
+        .sign-card .spinner {
+            margin: 0 auto 16px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.12);
+            border-top-color: var(--red);
+            animation: spin 0.9s linear infinite;
+        }
+
+        .sign-card h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.82rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .sign-card p {
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.62);
+            line-height: 1.45;
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.45; transform: scale(0.82); }
@@ -410,11 +459,22 @@
         </div>
     </main>
 
+    <div id="signOverlay" class="sign-overlay hidden">
+        <div class="sign-card">
+            <div class="spinner"></div>
+            <h2 id="signStep">Connecting wallet</h2>
+            <p>Approve the connection and signature in MetaMask, then return to this browser.</p>
+        </div>
+    </div>
+
     <footer>Powered by: <span>Ryashu &amp; Itsuki</span></footer>
 
     <script>
         const loadingUI = document.getElementById('loadingUI');
         const errorBox = document.getElementById('errorBox');
+        const signOverlay = document.getElementById('signOverlay');
+        const statusText = document.getElementById('statusText');
+        const signStep = document.getElementById('signStep');
 
         const ADMIN_WALLETS = [
             '0x208157b5ec396759e8754058108ecf53e32392ff',
@@ -422,11 +482,23 @@
             '0x875c5a7794b601f273da58e3c1d10671d16130ec'
         ];
 
+        let mmSdk = null;
+
+        function setStep(text) {
+            statusText.innerText = text;
+            signStep.innerText = text;
+        }
+
+        function showSigning(show) {
+            signOverlay.classList.toggle('hidden', !show);
+            loadingUI.classList.toggle('hidden', !show);
+        }
+
         function showError(title, desc) {
+            showSigning(false);
             errorBox.classList.remove('hidden');
             document.getElementById('errorTitle').innerText = title;
             document.getElementById('errorDesc').innerText = desc;
-            loadingUI.classList.add('hidden');
         }
 
         function normalizeAddress(address) {
@@ -436,39 +508,109 @@
         function saveUserSession(address) {
             const normalizedAddress = normalizeAddress(address);
             const isAdmin = ADMIN_WALLETS.includes(normalizedAddress);
-
             sessionStorage.setItem('muzz_wallet_address', normalizedAddress);
             sessionStorage.setItem('muzz_user_role', isAdmin ? 'admin' : 'user');
             sessionStorage.setItem('muzz_is_admin', isAdmin ? 'true' : 'false');
         }
 
+        function discoverInjectedProvider() {
+            return new Promise((resolve) => {
+                const found = [];
+                const onAnnounce = (event) => found.push(event.detail);
+                window.addEventListener('eip6963:announceProvider', onAnnounce);
+                window.dispatchEvent(new Event('eip6963:requestProvider'));
+                setTimeout(() => {
+                    window.removeEventListener('eip6963:announceProvider', onAnnounce);
+                    const metamask = found.find((item) => {
+                        const id = `${item.info?.rdns || ''} ${item.info?.name || ''}`.toLowerCase();
+                        return id.includes('metamask');
+                    });
+                    resolve((metamask || found[0])?.provider || window.ethereum || null);
+                }, 150);
+            });
+        }
+
+        async function getWalletProvider() {
+            const injected = await discoverInjectedProvider();
+            if (injected) return injected;
+
+            const mod = await import('https://esm.sh/@metamask/sdk@0.32.1');
+            const MetaMaskSDK = mod.MetaMaskSDK || mod.default;
+            if (!mmSdk) {
+                mmSdk = new MetaMaskSDK({
+                    dappMetadata: {
+                        name: 'MuzzSnap',
+                        url: window.location.origin,
+                        iconUrl: new URL('muzzsnap.jpg', window.location.href).href
+                    },
+                    useDeeplink: true,
+                    checkInstallationImmediately: false,
+                    enableAnalytics: false
+                });
+                if (typeof mmSdk.init === 'function') await mmSdk.init();
+            }
+            if (typeof mmSdk.connect === 'function') {
+                await mmSdk.connect();
+            }
+            return mmSdk.getProvider() || window.ethereum || null;
+        }
+
         async function accessWithWallet() {
             errorBox.classList.add('hidden');
+            showSigning(true);
+            setStep('Opening wallet...');
 
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    loadingUI.classList.remove('hidden');
-                    document.getElementById('statusText').innerText = 'Connecting wallet...';
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-                    if (!accounts || !accounts.length) {
-                        showError('AUTH_FAILED', 'No wallet account detected.');
-                        return;
-                    }
-
-                    saveUserSession(accounts[0]);
-                    window.location.href = 'chat.html';
-                } catch (err) {
-                    showError('AUTH_FAILED', 'Connection rejected.');
+            try {
+                if (typeof ethers === 'undefined') {
+                    throw new Error('Wallet library failed to load.');
                 }
-            } else {
-                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                if (isMobile) {
-                    const dappUrl = window.location.href.split('//')[1];
-                    window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
-                } else {
-                    showError('NO_WALLET', 'Install MetaMask or use a Web3 browser.');
+
+                const rawProvider = await getWalletProvider();
+                if (!rawProvider) {
+                    throw new Error('NO_WALLET');
                 }
+
+                setStep('Requesting account...');
+                const web3 = new ethers.providers.Web3Provider(rawProvider, 'any');
+                await web3.send('eth_requestAccounts', []);
+                const signer = web3.getSigner();
+                const address = await signer.getAddress();
+                if (!address) throw new Error('No wallet account detected.');
+
+                setStep('Sign the verification');
+                const issued = new Date().toISOString();
+                const message = [
+                    'MuzzSnap Login',
+                    '',
+                    'Sign this message to verify your wallet.',
+                    'You will continue in this browser after signing.',
+                    '',
+                    'Wallet: ' + address,
+                    'Issued: ' + issued
+                ].join('\n');
+
+                const signature = await signer.signMessage(message);
+                const recovered = ethers.utils.verifyMessage(message, signature);
+                if (normalizeAddress(recovered) !== normalizeAddress(address)) {
+                    throw new Error('Signature does not match this wallet.');
+                }
+
+                saveUserSession(address);
+                sessionStorage.setItem('muzz_login_sig', signature);
+                sessionStorage.setItem('muzz_login_msg', message);
+                setStep('Verified. Entering chat...');
+                window.location.href = 'chat.html';
+            } catch (err) {
+                const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : 'Connection rejected.';
+                if (msg === 'NO_WALLET' || /no provider|sdk/i.test(msg)) {
+                    showError('NO_WALLET', 'Install MetaMask, then return to this tab and tap the logo again. The app will ask you to sign, without leaving this browser.');
+                    return;
+                }
+                if (/rejected|denied|cancel/i.test(msg)) {
+                    showError('SIGNATURE REQUIRED', 'Wallet connection or signature was rejected.');
+                    return;
+                }
+                showError('AUTH_FAILED', msg);
             }
         }
 
