@@ -40,12 +40,14 @@ async function handleLogin() {
     UI.reset();
     UI.updateStatus("Initializing...");
 
-    // 1. Detección de Wallet
+    // 1. Detección de Wallet (nunca redirigir a MetaMask in-app browser)
     if (typeof window.ethereum === 'undefined') {
-        if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-            // Escape de iFrame para móviles
-            const rawUrl = window.location.href.replace(/^https?:\/\//, '');
-            window.location.href = "https://metamask.app.link/dapp/" + rawUrl;
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+            UI.showError(
+                "Sin wallet en este navegador",
+                "Quédate en Safari/Chrome. Instala MetaMask o usa WalletConnect desde esta página — no abras el sitio dentro de la app."
+            );
         } else {
             UI.showError("No Wallet", "Please install MetaMask extension.");
         }

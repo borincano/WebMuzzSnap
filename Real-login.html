@@ -83,14 +83,11 @@
                     showError("AUTH_FAILED", "Conexión rechazada.");
                 }
             } else {
-                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                if (isMobile) {
-                    // Intenta abrir el sitio dentro de la App de MetaMask
-                    const dappUrl = window.location.href.split('//')[1];
-                    window.location.href = `https://metamask.app.link/dapp/${dappUrl}`;
-                } else {
-                    showError("NO_WALLET", "Instala MetaMask o usa un navegador Web3.");
-                }
+                // Stay in Safari/Chrome — never force MetaMask in-app browser
+                showError(
+                    "NO_WALLET",
+                    "Sin wallet aquí. Quédate en Safari/Chrome: instala MetaMask o conecta con WalletConnect en esta página (no abras el sitio dentro de la app)."
+                );
             }
         }
 

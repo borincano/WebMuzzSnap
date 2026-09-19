@@ -543,7 +543,9 @@
                         url: window.location.origin,
                         iconUrl: new URL('muzzsnap.jpg', window.location.href).href
                     },
-                    useDeeplink: true,
+                    // false: prefer in-browser / QR (WalletConnect-style); never bounce into MetaMask dapp browser
+                    useDeeplink: false,
+                    preferDesktop: true,
                     checkInstallationImmediately: false,
                     enableAnalytics: false
                 });
@@ -603,7 +605,7 @@
             } catch (err) {
                 const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : 'Connection rejected.';
                 if (msg === 'NO_WALLET' || /no provider|sdk/i.test(msg)) {
-                    showError('NO_WALLET', 'Install MetaMask, then return to this tab and tap the logo again. The app will ask you to sign, without leaving this browser.');
+                    showError('NO_WALLET', 'Sin wallet aquí. Quédate en Safari/Chrome: instala MetaMask o conecta con WalletConnect en esta página. No abras el sitio dentro de la app.');
                     return;
                 }
                 if (/rejected|denied|cancel/i.test(msg)) {

@@ -146,12 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask;
     }
 
+    // Intentionally no metamask.app.link/dapp — that opens MetaMask in-app browser.
+    // Mobile users stay in Safari/Chrome; offer store install links only.
     function getMetaMaskDeepLink() {
-        const hostPath = `${window.location.host}${window.location.pathname}`;
-        if (isAndroid() || isIOS()) {
-            return `https://metamask.app.link/dapp/${hostPath}`;
-        }
-        return window.location.href;
+        return getMetaMaskInstallUrl();
     }
 
     function getMetaMaskInstallUrl() {
@@ -303,19 +301,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!hasMetaMask) {
             const installUrl = getMetaMaskInstallUrl();
-            messageTitle.textContent = "MetaMask Not Detected";
-            noWalletText.innerHTML = `Please install MetaMask. If you are on mobile, open this page inside the MetaMask app's browser.`;
+            messageTitle.textContent = mobile ? "Sin wallet en este navegador" : "MetaMask Not Detected";
+            noWalletText.innerHTML = mobile
+                ? `Quédate en Safari/Chrome. Instala MetaMask o usa WalletConnect aquí — <strong>no</strong> abras el sitio dentro de la app de MetaMask.`
+                : `Please install the MetaMask extension, then reconnect on this page.`;
             installMetaMaskButton.href = installUrl;
             installMetaMaskButton.classList.remove('hidden');
             noWalletMessage.classList.remove('hidden');
             updateStatus("MetaMask required", 'error');
-            
-            if (mobile) {
-                const deepLink = getMetaMaskDeepLink();
-                setTimeout(() => {
-                    window.location.href = deepLink;
-                }, 500);
-            }
+            // Do NOT auto-redirect to metamask.app.link/dapp (forces in-app browser).
             return;
         }
 
