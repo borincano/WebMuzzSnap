@@ -463,7 +463,7 @@
         <div class="sign-card">
             <div class="spinner"></div>
             <h2 id="signStep">Connecting wallet</h2>
-            <p>Approve the connection and signature in MetaMask, then return to this browser.</p>
+            <p>Approve and sign in MetaMask, then return to this browser (Brave/Safari/Chrome).</p>
         </div>
     </div>
 
@@ -513,6 +513,29 @@
             sessionStorage.setItem('muzz_is_admin', isAdmin ? 'true' : 'false');
         }
 
+        function isBraveWallet(provider) {
+            return !!(provider && (provider.isBraveWallet || provider._isBraveWallet));
+        }
+
+        function isRealMetaMask(provider) {
+            if (!provider) return false;
+            // Brave Wallet can expose ethereum; never treat it as MetaMask.
+            if (isBraveWallet(provider)) return false;
+            return !!(provider.isMetaMask);
+        }
+
+        function collectInjectedProviders() {
+            const list = [];
+            const eth = window.ethereum;
+            if (!eth) return list;
+            if (Array.isArray(eth.providers)) {
+                eth.providers.forEach((p) => { if (p) list.push(p); });
+            }
+            list.push(eth);
+            return list;
+        }
+
+        /** Prefer real MetaMask via EIP-6963 + ethereum.providers. Do NOT return Brave Wallet. */
         function discoverInjectedProvider() {
             return new Promise((resolve) => {
                 const found = [];
@@ -521,19 +544,25 @@
                 window.dispatchEvent(new Event('eip6963:requestProvider'));
                 setTimeout(() => {
                     window.removeEventListener('eip6963:announceProvider', onAnnounce);
-                    const metamask = found.find((item) => {
+
+                    const from6963 = found.find((item) => {
                         const id = `${item.info?.rdns || ''} ${item.info?.name || ''}`.toLowerCase();
-                        return id.includes('metamask');
+                        return id.includes('metamask') && !id.includes('brave');
                     });
-                    resolve((metamask || found[0])?.provider || window.ethereum || null);
+                    if (from6963?.provider && isRealMetaMask(from6963.provider)) {
+                        resolve(from6963.provider);
+                        return;
+                    }
+
+                    const injected = collectInjectedProviders();
+                    const mm = injected.find(isRealMetaMask);
+                    // Intentionally null when only Brave Wallet is present — caller uses MM SDK deeplink.
+                    resolve(mm || null);
                 }, 150);
             });
         }
 
-        async function getWalletProvider() {
-            const injected = await discoverInjectedProvider();
-            if (injected) return injected;
-
+        async function connectMetaMaskSdk() {
             const mod = await import('https://esm.sh/@metamask/sdk@0.32.1');
             const MetaMaskSDK = mod.MetaMaskSDK || mod.default;
             if (!mmSdk) {
@@ -543,9 +572,9 @@
                         url: window.location.origin,
                         iconUrl: new URL('muzzsnap.jpg', window.location.href).href
                     },
-                    // false: prefer in-browser / QR (WalletConnect-style); never bounce into MetaMask dapp browser
-                    useDeeplink: false,
-                    preferDesktop: true,
+                    // Deeplink opens MetaMask for connect/sign only; site stays in Brave/Safari/Chrome
+                    // (never use metamask.app.link/dapp/... which loads the whole site in MM).
+                    useDeeplink: true,
                     checkInstallationImmediately: false,
                     enableAnalytics: false
                 });
@@ -554,7 +583,15 @@
             if (typeof mmSdk.connect === 'function') {
                 await mmSdk.connect();
             }
-            return mmSdk.getProvider() || window.ethereum || null;
+            // Do not fall back to window.ethereum (may be Brave Wallet).
+            return mmSdk.getProvider() || null;
+        }
+
+        async function getWalletProvider() {
+            const injectedMm = await discoverInjectedProvider();
+            if (injectedMm) return injectedMm;
+            // No MetaMask injected (common on Brave mobile: only Brave Wallet) → force MetaMask app.
+            return connectMetaMaskSdk();
         }
 
         async function accessWithWallet() {
@@ -605,7 +642,7 @@
             } catch (err) {
                 const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : 'Connection rejected.';
                 if (msg === 'NO_WALLET' || /no provider|sdk/i.test(msg)) {
-                    showError('NO_WALLET', 'Sin wallet aquí. Quédate en Safari/Chrome: instala MetaMask o conecta con WalletConnect en esta página. No abras el sitio dentro de la app.');
+                    showError('NO_WALLET', 'Instala MetaMask. En Brave/Safari/Chrome: al conectar se abrirá MetaMask para firmar (no uses Brave Wallet); luego vuelve a este navegador. No abras el sitio dentro de la app.');
                     return;
                 }
                 if (/rejected|denied|cancel/i.test(msg)) {

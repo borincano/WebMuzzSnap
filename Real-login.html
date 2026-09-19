@@ -23,6 +23,9 @@
         .loading-spinner { animation: spin 1s linear infinite; border: 3px solid transparent; border-top-color: #ff0000; border-radius: 50%; }
         .hacker-input { font-family: 'Fira Code', monospace; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,0,0,0.2); color: #39ff14; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .sign-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); }
+        .sign-overlay.hidden { display: none; }
+        .sign-card { background: #111; border: 1px solid rgba(255,0,0,0.35); border-radius: 1rem; padding: 1.5rem; max-width: 18rem; text-align: center; }
     </style>
 </head>
 <body>
@@ -59,35 +62,180 @@
         </div>
     </div>
 
+    <div id="signOverlay" class="sign-overlay hidden">
+        <div class="sign-card">
+            <div class="loading-spinner w-10 h-10 mx-auto mb-3"></div>
+            <h2 id="signStep" class="text-sm font-bold mb-2">Connecting wallet</h2>
+            <p class="text-[11px] text-gray-400">Approve and sign in MetaMask, then return to this browser (Brave/Safari/Chrome).</p>
+        </div>
+    </div>
+
     <script>
         const loadingUI = document.getElementById('loadingUI');
         const errorBox = document.getElementById('errorBox');
+        const signOverlay = document.getElementById('signOverlay');
+        const statusText = document.getElementById('statusText');
+        const signStep = document.getElementById('signStep');
+
+        let mmSdk = null;
+
+        function setStep(text) {
+            statusText.innerText = text;
+            signStep.innerText = text;
+        }
+
+        function showSigning(show) {
+            signOverlay.classList.toggle('hidden', !show);
+            loadingUI.classList.toggle('hidden', !show);
+        }
 
         function showError(title, desc) {
+            showSigning(false);
             errorBox.classList.remove('hidden');
             document.getElementById('errorTitle').innerText = title;
             document.getElementById('errorDesc').innerText = desc;
-            loadingUI.classList.add('hidden');
+        }
+
+        function isBraveWallet(provider) {
+            return !!(provider && (provider.isBraveWallet || provider._isBraveWallet));
+        }
+
+        function isRealMetaMask(provider) {
+            if (!provider) return false;
+            // Brave Wallet can expose ethereum; never treat it as MetaMask.
+            if (isBraveWallet(provider)) return false;
+            return !!(provider.isMetaMask);
+        }
+
+        function collectInjectedProviders() {
+            const list = [];
+            const eth = window.ethereum;
+            if (!eth) return list;
+            if (Array.isArray(eth.providers)) {
+                eth.providers.forEach((p) => { if (p) list.push(p); });
+            }
+            list.push(eth);
+            return list;
+        }
+
+        /** Prefer real MetaMask via EIP-6963 + ethereum.providers. Do NOT return Brave Wallet. */
+        function discoverInjectedProvider() {
+            return new Promise((resolve) => {
+                const found = [];
+                const onAnnounce = (event) => found.push(event.detail);
+                window.addEventListener('eip6963:announceProvider', onAnnounce);
+                window.dispatchEvent(new Event('eip6963:requestProvider'));
+                setTimeout(() => {
+                    window.removeEventListener('eip6963:announceProvider', onAnnounce);
+
+                    const from6963 = found.find((item) => {
+                        const id = `${item.info?.rdns || ''} ${item.info?.name || ''}`.toLowerCase();
+                        return id.includes('metamask') && !id.includes('brave');
+                    });
+                    if (from6963?.provider && isRealMetaMask(from6963.provider)) {
+                        resolve(from6963.provider);
+                        return;
+                    }
+
+                    const injected = collectInjectedProviders();
+                    const mm = injected.find(isRealMetaMask);
+                    // Intentionally null when only Brave Wallet is present — caller uses MM SDK deeplink.
+                    resolve(mm || null);
+                }, 150);
+            });
+        }
+
+        async function connectMetaMaskSdk() {
+            const mod = await import('https://esm.sh/@metamask/sdk@0.32.1');
+            const MetaMaskSDK = mod.MetaMaskSDK || mod.default;
+            if (!mmSdk) {
+                mmSdk = new MetaMaskSDK({
+                    dappMetadata: {
+                        name: 'MuzzSnap',
+                        url: window.location.origin,
+                        iconUrl: new URL('muzzsnap.jpg', window.location.href).href
+                    },
+                    // Deeplink opens MetaMask for connect/sign only; site stays in Brave/Safari/Chrome
+                    // (never use metamask.app.link/dapp/... which loads the whole site in MM).
+                    useDeeplink: true,
+                    checkInstallationImmediately: false,
+                    enableAnalytics: false
+                });
+                if (typeof mmSdk.init === 'function') await mmSdk.init();
+            }
+            if (typeof mmSdk.connect === 'function') {
+                await mmSdk.connect();
+            }
+            // Do not fall back to window.ethereum (may be Brave Wallet).
+            return mmSdk.getProvider() || null;
+        }
+
+        async function getWalletProvider() {
+            const injectedMm = await discoverInjectedProvider();
+            if (injectedMm) return injectedMm;
+            // No MetaMask injected (common on Brave mobile: only Brave Wallet) → force MetaMask app.
+            return connectMetaMaskSdk();
         }
 
         async function accessWithWallet() {
             errorBox.classList.add('hidden');
-            
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    loadingUI.classList.remove('hidden');
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    sessionStorage.setItem('muzz_wallet_address', accounts[0]);
-                    window.location.href = 'chat.html';
-                } catch (err) {
-                    showError("AUTH_FAILED", "Conexión rechazada.");
+            showSigning(true);
+            setStep('Opening wallet...');
+
+            try {
+                if (typeof ethers === 'undefined') {
+                    throw new Error('Wallet library failed to load.');
                 }
-            } else {
-                // Stay in Safari/Chrome — never force MetaMask in-app browser
-                showError(
-                    "NO_WALLET",
-                    "Sin wallet aquí. Quédate en Safari/Chrome: instala MetaMask o conecta con WalletConnect en esta página (no abras el sitio dentro de la app)."
-                );
+
+                const rawProvider = await getWalletProvider();
+                if (!rawProvider) {
+                    throw new Error('NO_WALLET');
+                }
+
+                setStep('Requesting account...');
+                const web3 = new ethers.providers.Web3Provider(rawProvider, 'any');
+                await web3.send('eth_requestAccounts', []);
+                const signer = web3.getSigner();
+                const address = await signer.getAddress();
+                if (!address) throw new Error('No wallet account detected.');
+
+                setStep('Sign the verification');
+                const issued = new Date().toISOString();
+                const message = [
+                    'MuzzSnap Login',
+                    '',
+                    'Sign this message to verify your wallet.',
+                    'You will continue in this browser after signing.',
+                    '',
+                    'Wallet: ' + address,
+                    'Issued: ' + issued
+                ].join('\n');
+
+                const signature = await signer.signMessage(message);
+                const recovered = ethers.utils.verifyMessage(message, signature);
+                if (String(recovered).toLowerCase() !== String(address).toLowerCase()) {
+                    throw new Error('Signature does not match this wallet.');
+                }
+
+                sessionStorage.setItem('muzz_wallet_address', address);
+                sessionStorage.setItem('muzz_login_sig', signature);
+                sessionStorage.setItem('muzz_login_msg', message);
+                setStep('Verified. Entering chat...');
+                window.location.href = 'chat.html';
+            } catch (err) {
+                const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : 'Connection rejected.';
+                if (msg === 'NO_WALLET' || /no provider|sdk/i.test(msg)) {
+                    showError(
+                        'NO_WALLET',
+                        'Instala MetaMask. En Brave/Safari/Chrome: al conectar se abrirá MetaMask para firmar (no uses Brave Wallet); luego vuelve a este navegador. No abras el sitio dentro de la app.'
+                    );
+                    return;
+                }
+                if (/rejected|denied|cancel/i.test(msg)) {
+                    showError('SIGNATURE REQUIRED', 'Wallet connection or signature was rejected.');
+                    return;
+                }
+                showError('AUTH_FAILED', msg);
             }
         }
 
@@ -97,7 +245,6 @@
                 showError("REQUIRED", "Ingresa un nickname.");
                 return;
             }
-            // Guarda con prefijo para aplicar restricciones en chat.html
             sessionStorage.setItem('muzz_wallet_address', `guest_${user}`);
             window.location.href = 'chat.html';
         }
