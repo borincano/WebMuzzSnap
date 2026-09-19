@@ -1,14 +1,27 @@
 /**
  * MuzzSnap Protocol - Login Logic
- * Version: 2.2 (Mobile MetaMask deeplink for connect+sign; stay in system browser)
+ * Version: 2.3 (EIP-6963 multi-wallet + WalletConnect; no esm.sh MetaMask SDK)
  */
 
 const PROTOCOL_CONFIG = {
     tokenAddress: "0xef3dAa5fDa8Ad7aabFF4658f1F78061fd626B8f0",
-    minHold: 20000000, // 20 Millones
-    chainId: 1,        // Ethereum Mainnet
+    minHold: 20000000,
+    chainId: 1,
     targetPage: 'chat.html'
 };
+
+const WC_PROJECT_ID = (typeof window !== 'undefined' && window.MUZZ_WC_PROJECT_ID)
+    || '262de461149a3d0a834baf5a0d19924d';
+const WC_UMD = 'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.17.3/dist/index.umd.js';
+
+const KNOWN_WALLETS = [
+    { key: 'metamask', label: 'MetaMask', rdns: ['io.metamask', 'io.metamask.flask'], match: ['metamask'], priority: 1, flag: 'isMetaMask', skipIfBrave: true },
+    { key: 'coinbase', label: 'Coinbase Wallet', rdns: ['com.coinbase.wallet'], match: ['coinbase'], priority: 2, flag: 'isCoinbaseWallet' },
+    { key: 'rainbow', label: 'Rainbow', rdns: ['me.rainbow'], match: ['rainbow'], priority: 3 },
+    { key: 'trust', label: 'Trust Wallet', rdns: ['com.trustwallet.app'], match: ['trust'], priority: 4, flag: 'isTrust' },
+    { key: 'rabby', label: 'Rabby', rdns: ['io.rabby'], match: ['rabby'], priority: 5, flag: 'isRabby' },
+    { key: 'brave', label: 'Brave Wallet', rdns: ['com.brave.wallet'], match: ['brave'], priority: 90, flag: 'isBraveWallet' }
+];
 
 const UI = {
     btn: document.getElementById('btnConnect'),
@@ -36,16 +49,49 @@ const UI = {
     }
 };
 
-let mmSdk = null;
+let wcProvider = null;
 
 function isBraveWallet(provider) {
     return !!(provider && (provider.isBraveWallet || provider._isBraveWallet));
 }
 
-function isRealMetaMask(provider) {
-    if (!provider) return false;
-    if (isBraveWallet(provider)) return false;
-    return !!(provider.isMetaMask);
+function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-muzz-src="' + src + '"]');
+        if (existing) {
+            if (existing.dataset.loaded === '1') resolve();
+            else existing.addEventListener('load', () => resolve(), { once: true });
+            return;
+        }
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.dataset.muzzSrc = src;
+        s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+        s.onerror = () => reject(new Error('No se pudo cargar WalletConnect.'));
+        document.head.appendChild(s);
+    });
+}
+
+function discoverEip6963(timeoutMs) {
+    return new Promise((resolve) => {
+        const found = [];
+        const seen = new Set();
+        const onAnnounce = (event) => {
+            const detail = event.detail;
+            if (!detail || !detail.provider) return;
+            const id = detail.info?.uuid || detail.info?.rdns || String(found.length);
+            if (seen.has(id)) return;
+            seen.add(id);
+            found.push(detail);
+        };
+        window.addEventListener('eip6963:announceProvider', onAnnounce);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+        setTimeout(() => {
+            window.removeEventListener('eip6963:announceProvider', onAnnounce);
+            resolve(found);
+        }, timeoutMs || 200);
+    });
 }
 
 function collectInjectedProviders() {
@@ -59,99 +105,148 @@ function collectInjectedProviders() {
     return list;
 }
 
-/**
- * Prefer real MetaMask (EIP-6963 / ethereum.providers). Never return Brave Wallet.
- * Brave mobile often injects Brave Wallet as window.ethereum — skip it so SDK deeplink opens MetaMask.
- */
-function discoverInjectedProvider() {
-    return new Promise((resolve) => {
-        const found = [];
-        const onAnnounce = (event) => found.push(event.detail);
-        window.addEventListener('eip6963:announceProvider', onAnnounce);
-        window.dispatchEvent(new Event('eip6963:requestProvider'));
-        setTimeout(() => {
-            window.removeEventListener('eip6963:announceProvider', onAnnounce);
+function matchKnown(rdns, name, provider) {
+    const r = String(rdns || '').toLowerCase();
+    const n = String(name || '').toLowerCase();
+    for (const w of KNOWN_WALLETS) {
+        if (w.rdns.some((x) => r === x || r.includes(x))) {
+            if (w.skipIfBrave && isBraveWallet(provider)) continue;
+            return w;
+        }
+        if (w.match.some((x) => n.includes(x))) {
+            if (w.skipIfBrave && isBraveWallet(provider)) continue;
+            return w;
+        }
+        if (w.flag && provider && provider[w.flag]) {
+            if (w.skipIfBrave && isBraveWallet(provider)) continue;
+            if (w.key === 'metamask' && isBraveWallet(provider)) continue;
+            return w;
+        }
+    }
+    return null;
+}
 
-            const from6963 = found.find((item) => {
-                const id = `${item.info?.rdns || ''} ${item.info?.name || ''}`.toLowerCase();
-                return id.includes('metamask') && !id.includes('brave');
-            });
-            if (from6963?.provider && isRealMetaMask(from6963.provider)) {
-                resolve(from6963.provider);
-                return;
-            }
+async function buildWalletOptions() {
+    const announced = await discoverEip6963(220);
+    const options = [];
+    const usedProviders = new WeakSet();
+    const usedKeys = new Set();
 
-            const injected = collectInjectedProviders();
-            const mm = injected.find(isRealMetaMask);
-            resolve(mm || null);
-        }, 150);
+    announced.forEach((detail) => {
+        const known = matchKnown(detail.info?.rdns, detail.info?.name, detail.provider);
+        if (!known || usedKeys.has(known.key)) return;
+        usedKeys.add(known.key);
+        usedProviders.add(detail.provider);
+        options.push({ key: known.key, label: known.label, priority: known.priority, provider: detail.provider });
     });
+
+    collectInjectedProviders().forEach((provider) => {
+        if (!provider || usedProviders.has(provider)) return;
+        const known = matchKnown('', '', provider);
+        if (!known || usedKeys.has(known.key)) return;
+        usedKeys.add(known.key);
+        usedProviders.add(provider);
+        options.push({ key: known.key, label: known.label, priority: known.priority, provider });
+    });
+
+    options.sort((a, b) => a.priority - b.priority);
+    options.push({ key: 'walletconnect', label: 'WalletConnect', priority: 100, provider: null });
+    return options;
 }
 
-async function connectMetaMaskSdk() {
-    const mod = await import('https://esm.sh/@metamask/sdk@0.32.1');
-    const MetaMaskSDK = mod.MetaMaskSDK || mod.default;
-    if (!mmSdk) {
-        mmSdk = new MetaMaskSDK({
-            dappMetadata: {
-                name: 'MuzzSnap',
-                url: window.location.origin,
-                iconUrl: new URL('muzzsnap.jpg', window.location.href).href
-            },
-            useDeeplink: true,
-            checkInstallationImmediately: false,
-            enableAnalytics: false
-        });
-        if (typeof mmSdk.init === 'function') await mmSdk.init();
+function pickWallet(options) {
+    const labels = options.map((o, i) => (i + 1) + ') ' + o.label).join('\n');
+    const raw = window.prompt(
+        'Elegí wallet (número):\n' + labels + '\n\nFirmá en la app y volvé a este navegador.',
+        '1'
+    );
+    if (raw == null) throw new Error('PICKER_CANCELLED');
+    const idx = parseInt(String(raw).trim(), 10) - 1;
+    if (!options[idx]) throw new Error('NO_WALLET');
+    return options[idx];
+}
+
+async function connectWalletConnect() {
+    await loadScriptOnce(WC_UMD);
+    const mod = globalThis['@walletconnect/ethereum-provider'];
+    const EthereumProvider = mod && (mod.EthereumProvider || mod.default);
+    if (!EthereumProvider || typeof EthereumProvider.init !== 'function') {
+        throw new Error('WalletConnect no disponible en este navegador.');
     }
-    if (typeof mmSdk.connect === 'function') {
-        await mmSdk.connect();
+    if (wcProvider) {
+        try { await wcProvider.disconnect(); } catch (_) {}
+        wcProvider = null;
     }
-    return mmSdk.getProvider() || null;
+    wcProvider = await EthereumProvider.init({
+        projectId: WC_PROJECT_ID,
+        optionalChains: [1],
+        showQrModal: true,
+        metadata: {
+            name: 'MuzzSnap',
+            description: 'MuzzSnap Login',
+            url: window.location.origin,
+            icons: [new URL('muzzsnap.jpg', window.location.href).href]
+        }
+    });
+    await wcProvider.enable();
+    return wcProvider;
 }
 
 /**
- * Resolve MetaMask without opening metamask.app.link/dapp (keeps browsing in Brave/Safari/Chrome).
- * If only Brave Wallet is injected, use MetaMask SDK deeplink for connect + personal_sign.
+ * Resolve a wallet without metamask.app.link/dapp and without esm.sh MetaMask SDK.
  */
 async function getWalletProvider() {
-    const injectedMm = await discoverInjectedProvider();
-    if (injectedMm) return injectedMm;
-    return connectMetaMaskSdk();
+    const options = await buildWalletOptions();
+    const choice = pickWallet(options);
+    if (choice.key === 'walletconnect') return connectWalletConnect();
+    if (!choice.provider) throw new Error('NO_WALLET');
+    return choice.provider;
+}
+
+function authErrorMessage(err) {
+    const raw = (err && (err.message || err.reason)) ? String(err.message || err.reason) : '';
+    if (!raw || /PICKER_CANCELLED/i.test(raw)) {
+        return { title: 'CANCELADO', desc: 'Cancelaste la selección de wallet.' };
+    }
+    if (raw === 'NO_WALLET' || /no provider|sdk|NO_WALLET/i.test(raw)) {
+        return {
+            title: 'Sin wallet',
+            desc: 'Instalá MetaMask, Coinbase, Rainbow, Trust, Rabby o usá Brave Wallet / WalletConnect. Quedate en Brave/Safari/Chrome; no abras el sitio dentro de la app.'
+        };
+    }
+    if (/EventEmitter2|does not provide an export named/i.test(raw)) {
+        return {
+            title: 'AUTH_FAILED',
+            desc: 'Error de carga de wallet (SDK). Elegí una wallet del listado o WalletConnect.'
+        };
+    }
+    if (/rejected|denied|cancel|ACTION_REJECTED|4001|user rejected/i.test(raw)) {
+        return {
+            title: 'FIRMA RECHAZADA',
+            desc: 'Rechazaste la conexión o la firma en la wallet. Volvé a intentar y aprobá el mensaje.'
+        };
+    }
+    return { title: 'AUTH_FAILED', desc: raw || 'No se pudo autenticar.' };
 }
 
 async function handleLogin() {
     UI.reset();
-    UI.updateStatus("Opening wallet...");
+    UI.updateStatus("Buscando wallets...");
 
     try {
         if (typeof ethers === 'undefined') {
             throw new Error('Wallet library failed to load.');
         }
 
-        // Never: window.location = metamask.app.link/dapp/...
         const rawProvider = await getWalletProvider();
-        if (!rawProvider) {
-            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            if (isMobile) {
-                UI.showError(
-                    "Sin wallet",
-                    "Instala MetaMask. En Brave/Safari/Chrome: al conectar se abrirá MetaMask para firmar (no uses Brave Wallet); luego vuelve a este navegador."
-                );
-            } else {
-                UI.showError("No Wallet", "Please install MetaMask extension.");
-            }
-            return;
-        }
+        if (!rawProvider) throw new Error('NO_WALLET');
 
         const provider = new ethers.providers.Web3Provider(rawProvider, 'any');
 
-        // Connect (forces MetaMask sheet on mobile via SDK deeplink)
-        UI.updateStatus("Approve and sign in MetaMask, then return to this browser (Brave/Safari/Chrome).");
+        UI.updateStatus("Approve and sign in your wallet, then return to this browser (Brave/Safari/Chrome).");
         const accounts = await provider.send("eth_requestAccounts", []);
         const wallet = accounts[0];
 
-        // personal_sign — must always run after connect so MM shows the signature sheet
         UI.updateStatus("Signature Required...");
         const msg = `MUZZSNAP AUTHENTICATION\n\nNode: ${wallet}\nAccess: 20M MUZZLE required.\n\nSecurity clearance required for encrypted chat access.`;
         const sig = await provider.getSigner().signMessage(msg);
@@ -183,15 +278,8 @@ async function handleLogin() {
 
     } catch (err) {
         console.error("Auth Error:", err);
-        const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : "User rejected connection.";
-        if (/no provider|sdk|NO_WALLET/i.test(msg)) {
-            UI.showError(
-                "Sin wallet",
-                "Instala MetaMask. En Brave/Safari/Chrome: al conectar se abrirá MetaMask para firmar (no uses Brave Wallet); luego vuelve a este navegador."
-            );
-            return;
-        }
-        UI.showError("Security Error", msg);
+        const mapped = authErrorMessage(err);
+        UI.showError(mapped.title, mapped.desc);
     }
 }
 
